@@ -339,7 +339,9 @@ async def tasks(user):
     u = await load_universe()
     s = u["settings"]
     role = user["role"]
-    out = {"snapshots": [], "deliverables": [], "approvals": [], "reports": [], "payments": []}
+    out = {"snapshots": [], "deliverables": [], "approvals": [], "reports": [], "payments": [], "registrations": []}
+    if role == "Manager":
+        out["registrations"] = await db.users.find({"status": "pending"}, {"_id": 0, "pinHash": 0}).sort("registeredAt", 1).to_list(None)
     for b in u["bookings"]:
         if b["status"] in ("CANCELLED", "PAID"):
             continue

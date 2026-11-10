@@ -19,6 +19,12 @@ Stack: **FastAPI + MongoDB (Motor) + React (Vite, Tailwind, Recharts)**. Satu se
 
 Benchmark CPV/ER/cost per outcome/ROAS = *angka ilustrasi*; ubah di Pengaturan setelah 8 minggu data.
 
+## Pendaftaran akun tim KOL
+- Link untuk tim: `https://<domain>/daftar` (juga tombol "Daftar akun baru" di halaman login).
+- Hanya email `@citarasakuliner.com` (ubah lewat variable `ALLOWED_EMAIL_DOMAIN`), role **KOL Team Leader** atau **KOL Officer**, PIN 4–8 angka.
+- Akun berstatus *menunggu* dan tidak muncul di daftar login sampai **Manager** menekan Approve di Pengaturan → Pendaftar (atau dari menu Tugas). Manager bisa mengganti role saat approve, atau menolak dengan alasan.
+- Catatan: v1 tidak mengirim email verifikasi, jadi approval admin adalah pengamannya — pastikan nama & email memang anggota tim.
+
 ## Jalankan lokal
 ```bash
 # MongoDB lokal di 27017
@@ -52,7 +58,7 @@ Job terjadwal (WIB, butuh `ENABLE_JOBS=1` dan 1 replica): cek status & kunci 00.
 ```bash
 cd backend
 DB_NAME=kol_test ENABLE_JOBS=0 PUBLIC_METRICS_API_KEY=testkey uvicorn app.main:app --port 8001 &
-BASE=http://localhost:8001 pytest -q tests/     # 12 acceptance test (DB harus kosong)
+BASE=http://localhost:8001 pytest -q tests/     # 13 acceptance test (DB harus kosong)
 ```
 
 ## Belum termasuk (iterasi berikutnya)

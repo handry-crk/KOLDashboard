@@ -13,6 +13,7 @@ CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if 
 BOOTSTRAP_NAME = os.getenv("BOOTSTRAP_NAME", "Marketing Manager")
 BOOTSTRAP_PIN = os.getenv("BOOTSTRAP_PIN", "123456")
 FRONTEND_DIST = os.getenv("FRONTEND_DIST", os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+ALLOWED_EMAIL_DOMAIN = os.getenv("ALLOWED_EMAIL_DOMAIN", "citarasakuliner.com").lower().strip().lstrip("@")
 ENABLE_JOBS = os.getenv("ENABLE_JOBS", "1") == "1"
 SMTP_HOST = os.getenv("SMTP_HOST", "")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))

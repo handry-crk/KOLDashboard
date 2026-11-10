@@ -17,10 +17,16 @@ export default function Tugas() {
   const { data: t, error, loading } = useApi('/api/tasks')
   if (error) return <ErrorBox msg={error} />
   if (loading && !t) return <Loading />
-  const total = t.snapshots.length + t.deliverables.length + t.approvals.length + t.reports.length + t.payments.length
+  const regs = t.registrations || []
+  const total = t.snapshots.length + t.deliverables.length + t.approvals.length + t.reports.length + t.payments.length + regs.length
   return (
     <div className="space-y-4">
       <div><h1 className="text-xl font-extrabold">Halo, {user.name.split(' ')[0]} 👋</h1><p className="text-sm text-ink/60">{total ? `${total} hal perlu ditindaklanjuti hari ini` : 'Semua beres untuk hari ini.'}</p></div>
+      {regs.length > 0 && (
+        <Section title={`Pendaftar baru menunggu approval (${regs.length})`}>
+          {regs.map((r) => <Item key={r.id} to="/pengaturan#pendaftar" title={`${r.name} · ${r.role === 'KOL TL' ? 'KOL Team Leader' : r.role}`} sub={`${r.email} · ${date(r.registeredAt)}`} badge="Approval" tone="amber" />)}
+        </Section>
+      )}
       {t.snapshots.length > 0 && (
         <Section title={`Isi metrik (${t.snapshots.length})`}>
           {t.snapshots.map((s) => <Item key={s.contentId + s.day} to={`/input?b=${s.bookingId}&c=${s.contentId}&d=${s.day}`} title={`${s.kol} · ${s.day.replace('H', 'H+')}`} sub={`${s.campaign} · due ${date(s.dueDate)}`} badge={s.late ? 'Terlambat' : 'Hari ini'} tone={s.late ? 'red' : 'amber'} />)}

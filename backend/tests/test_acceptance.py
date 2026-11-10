@@ -221,3 +221,32 @@ def test_11_blacklist_and_cancel():
     assert r.status_code == 400
     r = c.post(f"/api/bookings/{bks[0]['id']}/transition", json={"to": "CANCELLED", "reason": "Rate card tidak cocok"}, headers=H("off"))
     assert r.status_code == 200
+
+
+def test_12_self_registration():
+    base = {"name": "Uji Daftar", "role": "KOL Officer", "pin": "2468"}
+    r = c.post("/api/auth/register", json={**base, "email": "uji@gmail.com"})
+    assert r.status_code == 400 and "citarasakuliner.com" in r.json()["detail"]
+    r = c.post("/api/auth/register", json={**base, "email": "uji@citarasakuliner.com.evil.id"})
+    assert r.status_code == 400
+    r = c.post("/api/auth/register", json={**base, "email": "uji@citarasakuliner.com", "role": "Manager"})
+    assert r.status_code == 400 and "Role" in r.json()["detail"]
+    r = c.post("/api/auth/register", json={**base, "email": "Uji@CitarasaKuliner.com"})
+    assert r.status_code == 200, r.text
+    assert c.post("/api/auth/register", json={**base, "name": "Lain", "email": "uji@citarasakuliner.com"}).status_code == 409
+    # pending: tidak muncul di daftar login
+    assert not any(u["name"] == "Uji Daftar" for u in c.get("/api/auth/users").json())
+    assert c.get("/api/users/pending", headers=H("tl")).status_code == 403
+    pend = c.get("/api/users/pending", headers=H("mgr")).json()
+    u = next(x for x in pend if x["email"] == "uji@citarasakuliner.com")
+    assert any(x["id"] == u["id"] for x in c.get("/api/tasks", headers=H("mgr")).json()["registrations"])
+    assert c.post(f"/api/users/{u['id']}/approve", json={"role": "Manager"}, headers=H("mgr")).status_code == 400
+    assert c.post(f"/api/users/{u['id']}/approve", json={"role": "KOL TL"}, headers=H("mgr")).status_code == 200
+    h = login("Uji Daftar", "2468")
+    assert c.get("/api/auth/me", headers=h).json()["role"] == "KOL TL"
+    # tolak pendaftar lain
+    c.post("/api/auth/register", json={"name": "Uji Tolak", "email": "tolak@citarasakuliner.com", "role": "KOL Officer", "pin": "1357"})
+    p2 = next(x for x in c.get("/api/users/pending", headers=H("mgr")).json() if x["email"] == "tolak@citarasakuliner.com")
+    assert c.post(f"/api/users/{p2['id']}/reject", json={"reason": ""}, headers=H("mgr")).status_code == 400
+    assert c.post(f"/api/users/{p2['id']}/reject", json={"reason": "Bukan tim KOL"}, headers=H("mgr")).status_code == 200
+    assert not any(u["name"] == "Uji Tolak" for u in c.get("/api/auth/users").json())

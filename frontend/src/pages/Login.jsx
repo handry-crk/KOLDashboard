@@ -3,6 +3,7 @@ import { api, auth } from '../api'
 import { ErrorBox } from '../components/ui'
 
 export default function Login({ onLogin }) {
+  const [mode, setMode] = useState(window.location.pathname === '/daftar' ? 'daftar' : 'login')
   const [users, setUsers] = useState([])
   const [sel, setSel] = useState(null)
   const [pin, setPin] = useState('')
@@ -29,7 +30,7 @@ export default function Login({ onLogin }) {
           <p className="mt-3 text-sm text-white/85">Budget KOL, report per objective, dan dampaknya — dalam satu tempat.</p>
         </div>
         <div className="mt-3 rounded-3xl bg-white p-5 shadow-sm">
-          {!sel ? (
+          {mode === 'daftar' ? <Register onBack={() => { setMode('login'); window.history.replaceState(null, '', '/login') }} /> : !sel ? (
             <>
               <h1 className="mb-3 text-base font-bold">Pilih nama</h1>
               <div className="grid grid-cols-2 gap-2">
@@ -40,6 +41,10 @@ export default function Login({ onLogin }) {
                 ))}
               </div>
               <div className="mt-3"><ErrorBox msg={err} /></div>
+              <div className="mt-4 border-t border-brand-line pt-4 text-center text-sm">
+                Belum punya akun? <button className="font-bold text-brand underline" onClick={() => { setMode('daftar'); window.history.replaceState(null, '', '/daftar') }}>Daftar akun baru</button>
+                <div className="mt-1 text-xs text-ink/50">Khusus tim KOL dengan email kantor · perlu approval admin</div>
+              </div>
             </>
           ) : (
             <>
@@ -59,6 +64,57 @@ export default function Login({ onLogin }) {
             </>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+function Register({ onBack }) {
+  const [info, setInfo] = useState({ domain: 'citarasakuliner.com', roles: [{ value: 'KOL Officer', label: 'KOL Officer' }, { value: 'KOL TL', label: 'KOL Team Leader' }] })
+  const [f, setF] = useState({ name: '', email: '', role: 'KOL Officer', pin: '', pin2: '' })
+  const [err, setErr] = useState('')
+  const [done, setDone] = useState(false)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { api('/api/auth/register-info').then(setInfo).catch(() => {}) }, [])
+  const emailOk = f.email.trim().toLowerCase().endsWith('@' + info.domain)
+  const submit = async () => {
+    setErr('')
+    if (f.name.trim().length < 2) return setErr('Nama wajib diisi')
+    if (!emailOk) return setErr(`Gunakan email @${info.domain}`)
+    if (!/^\d{4,8}$/.test(f.pin)) return setErr('PIN harus 4–8 digit angka')
+    if (f.pin !== f.pin2) return setErr('Konfirmasi PIN tidak sama')
+    setBusy(true)
+    try { await api('/api/auth/register', { method: 'POST', body: { name: f.name, email: f.email, role: f.role, pin: f.pin } }); setDone(true) }
+    catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+  if (done) return (
+    <div className="text-center">
+      <div className="text-4xl">⏳</div>
+      <h1 className="mt-2 text-lg font-bold">Pendaftaran terkirim</h1>
+      <p className="mt-1 text-sm text-ink/70">Akun <b>{f.email.trim().toLowerCase()}</b> menunggu approval admin. Setelah disetujui, nama Anda muncul di daftar login — masuk dengan PIN yang tadi dibuat.</p>
+      <button className="btn-ghost mt-4 w-full" onClick={onBack}>Kembali ke login</button>
+    </div>
+  )
+  return (
+    <div>
+      <button onClick={onBack} className="mb-2 text-sm font-semibold text-brand">‹ Kembali ke login</button>
+      <h1 className="text-base font-bold">Daftar akun tim KOL</h1>
+      <p className="mb-3 text-xs text-ink/60">Hanya email @{info.domain}. Akun aktif setelah di-approve admin.</p>
+      <div className="space-y-3">
+        <label className="block"><span className="label">Nama lengkap</span><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="name" /></label>
+        <label className="block"><span className="label">Email kantor</span>
+          <input className="input" type="email" inputMode="email" autoComplete="email" placeholder={`nama@${info.domain}`} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+          {f.email && !emailOk && <span className="mt-1 block text-xs text-brand">Harus berakhiran @{info.domain}</span>}
+        </label>
+        <div><span className="label">Role</span>
+          <div className="grid grid-cols-2 gap-2">{info.roles.map((r) => <button type="button" key={r.value} onClick={() => setF({ ...f, role: r.value })} className={`btn ${f.role === r.value ? 'bg-brand text-white' : 'border border-brand-line'}`}>{r.label}</button>)}</div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block"><span className="label">PIN (4–8 angka)</span><input className="input" type="password" inputMode="numeric" autoComplete="new-password" value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 8) })} /></label>
+          <label className="block"><span className="label">Ulangi PIN</span><input className="input" type="password" inputMode="numeric" autoComplete="new-password" value={f.pin2} onChange={(e) => setF({ ...f, pin2: e.target.value.replace(/\D/g, '').slice(0, 8) })} /></label>
+        </div>
+        <ErrorBox msg={err} />
+        <button className="btn-primary w-full" disabled={busy} onClick={submit}>{busy ? 'Mengirim…' : 'Kirim pendaftaran'}</button>
       </div>
     </div>
   )
