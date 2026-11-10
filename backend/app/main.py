@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -11,7 +12,12 @@ from .routers import auth_users, kols, campaigns, bookings, contents, data, repo
 
 @asynccontextmanager
 async def lifespan(app):
-    await bootstrap()
+    app.state.db_error = None
+    try:
+        await bootstrap()
+    except Exception as e:  # jangan crash: tampilkan penyebab di /api/health
+        app.state.db_error = f"{type(e).__name__}: {str(e)[:300]}"
+        logging.getLogger("uvicorn.error").error("Gagal konek MongoDB saat start — cek MONGO_URL. %s", app.state.db_error)
     sched = None
     if ENABLE_JOBS:
         from .jobs import start_scheduler
@@ -28,7 +34,16 @@ for r in (auth_users, kols, campaigns, bookings, contents, data, reports, admin)
 
 @app.get("/api/health")
 async def health():
-    return {"ok": True}
+    from .db import client
+    try:
+        await client.admin.command("ping")
+        if app.state.db_error:
+            await bootstrap()
+            app.state.db_error = None
+        return {"ok": True, "db": "terhubung"}
+    except Exception as e:
+        return JSONResponse(status_code=200, content={"ok": False, "db": "GAGAL", "detail": f"{type(e).__name__}: {str(e)[:300]}",
+                                                      "hint": "Cek variable MONGO_URL di Railway (bukan nilai contoh user:pass@cluster)."})
 
 
 @app.exception_handler(Exception)

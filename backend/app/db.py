@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 from .config import MONGO_URL, DB_NAME, TZ
 
-client = AsyncIOMotorClient(MONGO_URL)
+client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=8000, connectTimeoutMS=8000)
 db = client[DB_NAME]
 
 
