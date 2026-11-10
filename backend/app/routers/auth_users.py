@@ -169,6 +169,13 @@ async def create_user(body: UserIn, user=Depends(require("Manager"))):
 
 @router.put("/users/{uid}")
 async def update_user(uid: str, body: UserIn, user=Depends(require("Manager"))):
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if target and target.get("role") == "Manager" and (body.role != "Manager" or not body.active):
+        others = await db.users.count_documents({"role": "Manager", "active": True, "id": {"$ne": uid}})
+        if not others:
+            raise HTTPException(400, "Tidak bisa menonaktifkan/mengubah Manager terakhir — buat Manager lain dulu")
+    if body.role not in ROLES:
+        raise HTTPException(400, "Role tidak dikenal")
     upd = {"name": body.name, "role": body.role, "email": (body.email or "").strip().lower(), "active": body.active,
            "status": "active" if body.active else "inactive"}
     if body.pin:
@@ -187,11 +194,39 @@ async def read_settings(user=Depends(current_user)):
     return await get_settings()
 
 
+def validate_settings(s):
+    def num(k, lo=0, hi=None):
+        v = s.get(k)
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or v < lo or (hi is not None and v > hi):
+            raise HTTPException(400, f"Nilai {k} tidak valid")
+    for k in ("monthlyKolPagu", "approvalThresholdRp", "aovRp"):
+        num(k)
+    num("gmBlended", 0, 1)
+    for k in ("erFlagLow", "erFlagHigh", "viewsFlagRatio"):
+        num(k, 0, 1)
+    if s["erFlagLow"] >= s["erFlagHigh"]:
+        raise HTTPException(400, "Flag ER rendah harus lebih kecil dari flag ER tinggi")
+    for k in ("reportSubmitDays", "reportFinalDays"):
+        num(k, 1, 60)
+    if s["reportSubmitDays"] > s["reportFinalDays"]:
+        raise HTTPException(400, "Hari submit report tidak boleh melebihi hari final/lock")
+    t = s.get("tierThresholds") or {}
+    try:
+        seq = [float(t["Nano"]), float(t["Micro"]), float(t["Macro"]), float(t["Mega"])]
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(400, "Batas follower tier tidak lengkap")
+    if not all(a < b for a, b in zip(seq, seq[1:])):
+        raise HTTPException(400, "Batas follower tier harus naik: Nano < Micro < Macro < Mega")
+    if not isinstance(s.get("benchmarks"), dict):
+        raise HTTPException(400, "Benchmark tidak valid")
+
+
 @router.put("/settings")
 async def write_settings(body: dict, user=Depends(require("Manager"))):
     before = await get_settings()
     allowed = set(DEFAULT_SETTINGS.keys()) - {"id"}
     upd = {k: v for k, v in body.items() if k in allowed}
+    validate_settings({**before, **upd})
     await db.settings.update_one({"id": "settings"}, {"$set": upd}, upsert=True)
     await audit(user, "settings.update", "settings", before={k: before.get(k) for k in upd}, after=upd)
     return await get_settings()

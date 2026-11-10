@@ -1,11 +1,12 @@
 import io
 import os
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Header
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from PIL import Image
 from ..auth import current_user, require, EDITORS, LEADS
-from ..config import FILE_DIR
+from ..config import FILE_DIR, JWT_SECRET
 from ..db import db, new_id, now_iso, audit, parse_date, today
 from ..logic import CATEGORIES, METRIC_LABELS, detect_platform, norm_handle, SNAP_DAYS, COMMITTED
 from ..services import snapshot_locked, snapshot_available
@@ -40,8 +41,11 @@ async def add_content(body: ContentIn, user=Depends(require(*EDITORS))):
     b = await db.bookings.find_one({"id": body.bookingId}, {"_id": 0})
     if not b:
         raise HTTPException(404, "Booking tidak ditemukan")
-    if b["status"] not in COMMITTED or b["status"] == "PAID":
-        raise HTTPException(400, "Konten hanya bisa ditambahkan untuk booking yang sudah DEAL")
+    if b["status"] not in ("DEAL", "BRIEF_SENT", "DRAFT_REVIEW", "POSTED", "REPORT_DUE"):
+        raise HTTPException(400, "Konten hanya bisa ditambahkan untuk booking DEAL s/d sebelum report disubmit")
+    for f in body.proofFiles:
+        if not await db.files.find_one({"id": f}):
+            raise HTTPException(400, "File bukti tidak ditemukan, upload ulang")
     url = body.url.strip().split("?")[0]
     if not url.startswith("http"):
         raise HTTPException(400, "Link post tidak valid")
@@ -72,6 +76,9 @@ async def update_content(cid: str, body: ContentIn, user=Depends(require(*EDITOR
     ct = await db.contents.find_one({"id": cid}, {"_id": 0})
     if not ct:
         raise HTTPException(404, "Konten tidak ditemukan")
+    bk = await db.bookings.find_one({"id": ct["bookingId"]}, {"_id": 0, "status": 1})
+    if bk and bk["status"] in ("REPORT_SUBMITTED", "REPORT_APPROVED", "PAID") and user["role"] not in LEADS:
+        raise HTTPException(403, "Report sudah disubmit; perubahan konten hanya oleh KOL TL / Manager")
     upd = {"status": body.status, "format": body.format, "captionSnippet": body.captionSnippet, "isCollab": body.isCollab,
            "adsBoosted": body.adsBoosted, "boostCostRp": body.boostCostRp, "proofFiles": body.proofFiles}
     if body.postedAt != ct["postedAt"]:
@@ -103,6 +110,10 @@ async def upsert_snapshot(body: SnapshotIn, user=Depends(require(*EDITORS))):
     c = await db.campaigns.find_one({"id": b["campaignId"]}, {"_id": 0})
     if not snapshot_available(body.day, ct["postedAt"]):
         raise HTTPException(400, f"Snapshot {body.day} baru bisa diisi {body.day.replace('H', 'H+')} hari setelah tayang")
+    if b["status"] == "CANCELLED":
+        raise HTTPException(400, "Booking dibatalkan")
+    if b["status"] in ("REPORT_SUBMITTED", "REPORT_APPROVED", "PAID") and body.day != "H30" and user["role"] not in LEADS:
+        raise HTTPException(403, "Report sudah disubmit; snapshot H+1–H+7 hanya bisa diubah KOL TL / Manager (H+30 tetap boleh diisi)")
     fields = CATEGORIES[c["category"]]["fields"]
     vals = {}
     for f in fields:
@@ -123,10 +134,22 @@ async def upsert_snapshot(body: SnapshotIn, user=Depends(require(*EDITORS))):
             vals[f] = int(float(body.values[f]))
     if not body.proofFiles:
         raise HTTPException(400, "Screenshot insight wajib diunggah sebagai bukti")
+    for f in body.proofFiles:
+        if not await db.files.find_one({"id": f}):
+            raise HTTPException(400, "File screenshot tidak ditemukan, upload ulang")
     if vals.get("views") is not None:
         eng = sum(vals.get(k, 0) for k in ("likes", "comments", "shares", "saves"))
         if eng > vals["views"] * 1.5 and vals["views"] > 0:
             raise HTTPException(400, "Engagement lebih besar dari views, cek kembali angka")
+    order = ["H1", "H3", "H7", "H30"]
+    others = await db.snapshots.find({"contentId": body.contentId, "day": {"$ne": body.day}}, {"_id": 0, "day": 1, "views": 1}).to_list(None)
+    for o in others:
+        if o.get("views") is None:
+            continue
+        if order.index(o["day"]) < order.index(body.day) and vals["views"] < o["views"]:
+            raise HTTPException(400, f"Views {body.day} ({vals['views']:,}) lebih kecil dari {o['day']} ({o['views']:,}); views tidak bisa turun — cek angka".replace(",", "."))
+        if order.index(o["day"]) > order.index(body.day) and vals["views"] > o["views"]:
+            raise HTTPException(400, f"Views {body.day} lebih besar dari {o['day']} yang sudah tercatat — cek angka")
     existing = await db.snapshots.find_one({"contentId": body.contentId, "day": body.day}, {"_id": 0})
     if existing:
         if snapshot_locked(existing, ct["postedAt"]):
@@ -195,7 +218,14 @@ async def upload(file: UploadFile = File(...), user=Depends(current_user)):
 
 
 @router.get("/files/{name}")
-async def get_file(name: str):
+async def get_file(name: str, t: str = "", authorization: str = Header(default="")):
+    tok = authorization[7:] if authorization.startswith("Bearer ") else t
+    try:
+        data = jwt.decode(tok, JWT_SECRET, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(401, "Silakan login untuk melihat file")
+    if not await db.users.find_one({"id": data.get("sub"), "active": True}, {"_id": 1}):
+        raise HTTPException(401, "User tidak aktif")
     if "/" in name or ".." in name:
         raise HTTPException(400, "Nama file tidak valid")
     p = os.path.join(FILE_DIR, name)

@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -54,7 +55,7 @@ async def check_dup(body: KolIn, exclude=None):
         h = norm_handle(h)
         if not h:
             continue
-        q = {f"handles.{plat}": {"$regex": f"^@?{h}$", "$options": "i"}}
+        q = {f"handles.{plat}": {"$regex": f"^@?{re.escape(h)}$", "$options": "i"}}
         if exclude:
             q["id"] = {"$ne": exclude}
         other = await db.kols.find_one(q, {"_id": 0, "name": 1})

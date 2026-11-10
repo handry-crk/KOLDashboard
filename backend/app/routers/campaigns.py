@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from ..auth import current_user, require, LEADS
 from ..db import db, new_id, now_iso, audit
 from ..logic import (CATEGORIES, load_universe, aggregate, with_roi, campaign_budgets_in_month,
-                     committed_for_campaign, total_cost, COMMITTED)
+                     committed_for_campaign, total_cost, COMMITTED, committed_cost)
 
 router = APIRouter(prefix="/api/campaigns")
 GATES = ["PENDING", "GO", "GWC", "HOLD", "SELESAI"]
@@ -67,8 +67,7 @@ async def list_campaigns(month: str | None = None, user=Depends(current_user)):
         bs = [b for b in u["bookings"] if b["campaignId"] == c["id"]]
         ms = [u["metrics"][b["id"]] for b in bs if b.get("status") in COMMITTED]
         a = with_roi(aggregate(ms), gm)
-        committed = sum(total_cost(b.get("costs")) for b in bs if b.get("status") in
-                        ("DEAL", "BRIEF_SENT", "DRAFT_REVIEW", "POSTED", "REPORT_DUE", "REPORT_SUBMITTED", "REPORT_APPROVED", "PAID"))
+        committed = sum(committed_cost(b) for b in bs)
         out.append({**c, "agg": a, "committed": committed, "bookingCount": len(bs)})
     return out
 
@@ -115,8 +114,12 @@ async def update_campaign(cid: str, body: CampaignIn, user=Depends(require(*LEAD
     if body.gateStatus != before.get("gateStatus"):
         if user["role"] != "Manager":
             raise HTTPException(403, "Status Activity Gate hanya diputuskan Manager")
-        if body.gateStatus == "SELESAI" and not before.get("review"):
-            raise HTTPException(400, "Isi Review (SCALE/KEEP/STOP + learning) sebelum campaign ditutup SELESAI")
+        if body.gateStatus == "SELESAI":
+            if not before.get("review"):
+                raise HTTPException(400, "Isi Review (SCALE/KEEP/STOP + learning) sebelum campaign ditutup SELESAI")
+            open_ = await db.bookings.count_documents({"campaignId": cid, "status": {"$in": ["SHORTLIST", "NEGO", "WAITING_APPROVAL", "DEAL", "BRIEF_SENT", "DRAFT_REVIEW", "POSTED", "REPORT_DUE", "REPORT_SUBMITTED"]}})
+            if open_:
+                raise HTTPException(400, f"Masih ada {open_} booking yang belum selesai/batal; selesaikan atau batalkan dulu")
     if body.category != before["category"]:
         n = await db.bookings.count_documents({"campaignId": cid})
         if n:

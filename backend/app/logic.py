@@ -362,20 +362,36 @@ async def load_universe(campaign_query=None, booking_query=None):
             "snaps_by_content": sbc, "kols": kols, "metrics": metrics}
 
 
+def committed_cost(b):
+    """Biaya yang mengikat budget: total kontrak untuk DEAL s/d PAID; untuk booking batal hanya DP yang sudah keluar."""
+    if b.get("status") in COMMITTED:
+        return total_cost(b.get("costs"))
+    if b.get("status") == "CANCELLED":
+        return int((b.get("payment") or {}).get("dpRp") or 0)
+    return 0
+
+
 async def committed_for_campaign(campaign_id, exclude_booking=None):
     tot = 0
-    async for b in db.bookings.find({"campaignId": campaign_id, "status": {"$in": list(COMMITTED)}}, {"_id": 0}):
+    async for b in db.bookings.find({"campaignId": campaign_id}, {"_id": 0}):
         if b["id"] != exclude_booking:
-            tot += total_cost(b.get("costs"))
+            tot += committed_cost(b)
     return tot
 
 
 async def campaign_budgets_in_month(month, category, exclude_campaign=None):
     tot = 0
     async for c in db.campaigns.find({"month": month, "category": category}, {"_id": 0}):
-        if c["id"] != exclude_campaign and c.get("gateStatus") != "HOLD":
-            tot += int(c.get("budgetRp") or 0)
+        if c["id"] != exclude_campaign:
+            tot += await campaign_allocation(c)
     return tot
+
+
+async def campaign_allocation(c):
+    """Plan yang dipakai campaign: budget penuh; bila HOLD, cukup biaya yang sudah terikat."""
+    if c.get("gateStatus") == "HOLD":
+        return await committed_for_campaign(c["id"])
+    return int(c.get("budgetRp") or 0)
 
 
 def aggregate(ms):

@@ -32,7 +32,7 @@ export default function Pembayaran() {
                   <td className="td"><StatusBadge s={b.status} />{b.reportApprovedBy && <div className="text-[11px] text-ink/50">approved {b.reportApprovedBy}</div>}</td>
                   <td className="td text-right num">{rp(b.totalCostRp)}</td>
                   <td className="td text-right num">{rp(dp)}</td>
-                  <td className="td text-right num font-semibold">{tab === 'paid' ? rp(0) : rp(b.totalCostRp - dp)}</td>
+                  <td className="td text-right num font-semibold">{tab === 'paid' ? rp(0) : rp(b.totalCostRp + (b.commissionDue || 0) - dp)}{b.commissionDue > 0 && tab !== 'paid' && <div className="text-[11px] font-normal text-ink/50">incl. komisi {rp(b.commissionDue)}</div>}</td>
                   <td className="td text-xs">{b.kolBank || '—'}</td>
                   <td className="td whitespace-nowrap">
                     {fin && tab === 'queue' && <button className="btn-ok btn-sm" onClick={() => setPay({ b, mode: 'pay' })}>Lunasi</button>}
@@ -63,7 +63,7 @@ function PayModal({ x, onClose, onDone }) {
   if (x && x.b.id + x.mode !== lastId) {
     setLastId(x.b.id + x.mode); setErr(''); setProof([]); setInv([]); setReason('')
     const dp = x.b.payment?.dpRp || 0
-    setAmt(x.mode === 'dp' ? Math.round(x.b.totalCostRp / 2) : x.b.totalCostRp - dp)
+    setAmt(x.mode === 'dp' ? Math.round(x.b.totalCostRp / 2) : x.b.totalCostRp + (x.b.commissionDue || 0) - dp)
   }
   if (!x) return null
   const submit = async () => {

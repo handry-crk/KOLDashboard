@@ -2,7 +2,7 @@
 from collections import defaultdict
 from datetime import timedelta
 from .db import db, parse_date, today, week_monday, days_since
-from .logic import (CATEGORIES, TIERS, COMMITTED, load_universe, aggregate, with_roi, safe_div, total_cost, latest_snap)
+from .logic import (CATEGORIES, TIERS, COMMITTED, load_universe, aggregate, with_roi, safe_div, total_cost, latest_snap, committed_cost)
 from .services import refresh_statuses
 
 DIRECT_CATS = [c for c, v in CATEGORIES.items() if "DIRECT" in v["evidence"]]
@@ -81,8 +81,7 @@ async def direksi(month: str):
     committed = [b for b in live if b["status"] in COMMITTED]
     ms_all = [u["metrics"][b["id"]] for b in committed]
     agg = with_roi(aggregate(ms_all), gm)
-    paid = sum((b.get("payment") or {}).get("paidRp", 0) or 0 for b in committed if b["status"] == "PAID") + \
-        sum((b.get("payment") or {}).get("dpRp", 0) or 0 for b in committed if b["status"] != "PAID")
+    paid = sum(int((b.get("payment") or {}).get("paidRp") or 0) + int((b.get("payment") or {}).get("dpRp") or 0) for b in u["bookings"])
     # compliance
     due = []
     for b in committed:
@@ -92,7 +91,8 @@ async def direksi(month: str):
     approved = [b for b in due if b["status"] in ("REPORT_APPROVED", "PAID")]
     no_report = [b for b in committed if any(f["code"] == "report_overdue" for f in u["metrics"][b["id"]]["flags"])]
     tiles = {
-        "pagu": sum(plans.values()) or s["monthlyKolPagu"], "committed": agg["cost"], "paid": paid,
+        "pagu": sum(plans.values()) or s["monthlyKolPagu"], "committed": sum(committed_cost(b) for b in u["bookings"]), "paid": paid,
+        "actualCost": agg["cost"],
         "contents": agg["contents"], "views": agg["views"], "revenueDirect": agg["revenueDirect"],
         "revenueAssisted": agg["revenueAssisted"], "roiDirect": agg["roiDirect"], "roiTotal": agg["roiTotal"],
         "roas": agg["roas"], "compliance": safe_div(len(approved), len(due)), "dueCount": len(due),
@@ -276,9 +276,11 @@ async def weekly(week: str):
     for b in u["bookings"]:
         if b["status"] == "CANCELLED":
             continue
-        cts = [c for c in u["contents_by_booking"].get(b["id"], []) if mon <= parse_date(c["postedAt"]) <= sun]
-        if not cts:
-            continue
+        all_cts = u["contents_by_booking"].get(b["id"], [])
+        fp = first_post(all_cts)
+        if not fp or not (mon <= fp <= sun):
+            continue  # booking dihitung sekali, di minggu konten pertamanya tayang
+        cts = [c for c in all_cts if mon <= parse_date(c["postedAt"]) <= sun]
         m = u["metrics"][b["id"]]
         ms.append(m)
         k = u["kols"].get(b["kolId"], {})

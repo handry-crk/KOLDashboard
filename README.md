@@ -58,7 +58,7 @@ Job terjadwal (WIB, butuh `ENABLE_JOBS=1` dan 1 replica): cek status & kunci 00.
 ```bash
 cd backend
 DB_NAME=kol_test ENABLE_JOBS=0 PUBLIC_METRICS_API_KEY=testkey uvicorn app.main:app --port 8001 &
-BASE=http://localhost:8001 pytest -q tests/     # 13 acceptance test (DB harus kosong)
+BASE=http://localhost:8001 pytest -q tests/     # 13 acceptance + 1 test aturan (20 percobaan pelanggaran); DB harus kosong
 ```
 
 ## Belum termasuk (iterasi berikutnya)

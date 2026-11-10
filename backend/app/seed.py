@@ -86,6 +86,7 @@ async def seed(force=False):
         return {"seeded": False, "reason": "Database sudah berisi data"}
     T = today()
     proof = proof_image()
+    await db.files.update_one({"id": proof}, {"$set": {"id": proof, "by": "seed", "at": now_iso(), "origName": proof}}, upsert=True)
     await db.settings.update_one({"id": "settings"}, {"$set": {k: v for k, v in DEFAULT_SETTINGS.items()}}, upsert=True)
     # users
     users = [("Agoy", "KOL TL"), ("Rina", "KOL Officer"), ("Dimas", "KOL Officer"), ("Sari (Finance)", "Finance"), ("Direksi CRK", "Direksi")]

@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from ..auth import current_user, require, EDITORS, LEADS
 from ..db import db, new_id, now_iso, audit, today, parse_date
 from ..logic import (STATUSES, COMMITTED, CATEGORIES, get_settings, kol_tier, total_cost, load_universe,
-                     norm_handle)
+                     norm_handle, committed_cost)
 from ..services import refresh_statuses, snapshot_locked
 from .campaigns import fmt_rp
 
@@ -50,8 +50,8 @@ async def check_deal(b, settings, campaign):
     if int(campaign.get("budgetRp") or 0) >= settings["approvalThresholdRp"] and campaign.get("gateStatus") not in ("GO", "GWC"):
         raise HTTPException(400, f"Campaign ≥ {fmt_rp(settings['approvalThresholdRp'])} wajib Activity Gate GO/GWC sebelum DEAL")
     committed = 0
-    async for x in db.bookings.find({"campaignId": campaign["id"], "status": {"$in": list(COMMITTED)}, "id": {"$ne": b["id"]}}, {"_id": 0}):
-        committed += total_cost(x.get("costs"))
+    async for x in db.bookings.find({"campaignId": campaign["id"], "id": {"$ne": b["id"]}}, {"_id": 0}):
+        committed += committed_cost(x)
     remaining = int(campaign.get("budgetRp") or 0) - committed
     if total_cost(b.get("costs")) > remaining:
         raise HTTPException(400, f"Biaya booking {fmt_rp(total_cost(b.get('costs')))} melebihi sisa budget campaign (sisa {fmt_rp(max(remaining, 0))})")
@@ -99,7 +99,11 @@ async def do_transition(b, to, user, reason=""):
             raise HTTPException(400, "Booking yang sudah lunas tidak bisa dibatalkan")
         if len(reason.strip()) < 5:
             raise HTTPException(400, "Alasan pembatalan wajib diisi")
+    elif frm == "CANCELLED" and to not in ("SHORTLIST", "NEGO"):
+        raise HTTPException(400, "Booking batal hanya bisa diaktifkan kembali ke Shortlist / Negosiasi (lalu lewati cek budget & approval lagi)")
     elif frm == "CANCELLED" or IDX[to] < IDX[frm]:
+        if frm == "PAID":
+            raise HTTPException(400, "Booking yang sudah lunas tidak bisa dimundurkan")
         if role not in LEADS:
             raise HTTPException(403, "Mundur status hanya oleh KOL TL / Manager")
         if len(reason.strip()) < 5:
@@ -198,9 +202,9 @@ async def build_doc(body: BookingIn, user, existing=None):
         doc["uniqueCode"] = f"{CATEGORIES[campaign['category']]['code']}-{h}"
     cost = total_cost(doc["costs"])
     committed = 0
-    async for x in db.bookings.find({"campaignId": campaign["id"], "status": {"$in": list(COMMITTED)}}, {"_id": 0}):
+    async for x in db.bookings.find({"campaignId": campaign["id"]}, {"_id": 0}):
         if not existing or x["id"] != existing["id"]:
-            committed += total_cost(x.get("costs"))
+            committed += committed_cost(x)
     remaining = int(campaign.get("budgetRp") or 0) - committed
     if cost > remaining:
         raise HTTPException(400, f"Biaya {fmt_rp(cost)} melebihi sisa budget campaign {campaign['name']} (sisa {fmt_rp(max(remaining, 0))})")
@@ -235,9 +239,8 @@ async def update_booking(bid: str, body: BookingIn, user=Depends(require(*EDITOR
     cost_changed = total_cost(doc["costs"]) != total_cost(b.get("costs"))
     if cost_changed and b.get("dealAt"):
         settings = await get_settings()
-        if needs_approval({**b, **doc}, settings) and user["role"] != "Manager":
-            # biaya berubah setelah DEAL → approval lama gugur
-            doc["approvals"] = [a for a in b.get("approvals", []) if a.get("role") != "Manager"]
+        if total_cost(doc["costs"]) > total_cost(b.get("costs")) and needs_approval({**b, **doc}, settings) and user["role"] != "Manager":
+            raise HTTPException(403, "Kenaikan biaya setelah DEAL untuk booking yang butuh approval hanya bisa diubah Manager")
     await db.bookings.update_one({"id": bid}, {"$set": doc})
     await audit(user, "booking.update", bid, before={"costs": b.get("costs"), "deliverables": b.get("deliverables")},
                 after={"costs": doc["costs"], "deliverables": doc["deliverables"]})
@@ -262,22 +265,45 @@ async def approve(bid: str, body: TransitionIn, user=Depends(require("Manager"))
     decision = "approve" if body.to != "reject" else "reject"
     entry = {"by": user["name"], "role": "Manager", "at": now_iso(), "note": body.reason, "decision": decision}
     await db.bookings.update_one({"id": bid}, {"$push": {"approvals": entry}})
-    await audit(user, f"booking.{decision}", bid, reason=body.reason)
     b = await db.bookings.find_one({"id": bid}, {"_id": 0})
     if decision == "approve" and b["status"] == "WAITING_APPROVAL":
-        await do_transition(b, "DEAL", user, "Disetujui Manager")
+        try:
+            await do_transition(b, "DEAL", user, "Disetujui Manager")
+        except HTTPException:
+            await db.bookings.update_one({"id": bid}, {"$pull": {"approvals": {"at": entry["at"], "by": entry["by"]}}})
+            raise
+    await audit(user, f"booking.{decision}", bid, reason=body.reason)
     if decision == "reject" and b["status"] == "WAITING_APPROVAL":
         await do_transition(b, "NEGO", user, body.reason or "Ditolak Manager")
     return {"ok": True}
 
 
 # ----------------------------------------------------------------- Pembayaran
+async def check_files(ids):
+    for f in ids or []:
+        if not await db.files.find_one({"id": f}):
+            raise HTTPException(400, "File bukti tidak ditemukan, upload ulang")
+
+
+async def commission_due(b):
+    """Komisi affiliate (Keranjang Kuning) dari snapshot terakhir tiap konten."""
+    tot = 0
+    async for ct in db.contents.find({"bookingId": b["id"]}, {"_id": 0, "id": 1}):
+        snaps = await db.snapshots.find({"contentId": ct["id"]}, {"_id": 0}).to_list(None)
+        if snaps:
+            order = ["H1", "H3", "H7", "H30"]
+            last = max(snaps, key=lambda s: order.index(s["day"]))
+            tot += int(last.get("commissionRp") or 0)
+    return tot
 @router.get("/payments")
 async def payments(user=Depends(require("Finance", "Manager", "KOL TL"))):
     u = await load_universe()
     rows = [enrich(b, u) for b in u["bookings"] if b["status"] in COMMITTED]
     for r in rows:
         r.pop("metrics", None)
+        r["commissionDue"] = int(sum(int(x.get("commissionRp") or 0) for x in [
+            max(u["snaps_by_content"].get(ct["id"], []), key=lambda s: ["H1", "H3", "H7", "H30"].index(s["day"]), default={})
+            for ct in u["contents_by_booking"].get(r["id"], [])]))
         bank = u["kols"].get(r["kolId"], {}).get("bankAccount", "")
         r["kolBank"] = bank if user["role"] in ("Finance", "Manager") else (bank[:3] + "•••" + bank[-3:] if bank else "")
     queue = [r for r in rows if r["status"] == "REPORT_APPROVED"]
@@ -293,8 +319,11 @@ async def pay_dp(bid: str, body: PayIn, user=Depends(require("Finance", "Manager
         raise HTTPException(404, "Booking tidak ditemukan")
     if b["status"] not in COMMITTED or b["status"] == "PAID":
         raise HTTPException(400, "DP hanya untuk booking berstatus DEAL s/d sebelum lunas")
-    if body.amountRp > total_cost(b.get("costs")):
-        raise HTTPException(400, "DP melebihi total biaya")
+    if (b.get("payment") or {}).get("dpRp"):
+        raise HTTPException(400, "DP sudah tercatat untuk booking ini")
+    if body.amountRp <= 0 or body.amountRp > total_cost(b.get("costs")):
+        raise HTTPException(400, "Nominal DP harus > 0 dan tidak melebihi total kontrak")
+    await check_files(body.proofFiles)
     pay = b.get("payment") or {}
     pay.update({"dpRp": body.amountRp, "dpPaidAt": now_iso(), "dpProof": body.proofFiles, "dpBy": user["name"]})
     await db.bookings.update_one({"id": bid}, {"$set": {"payment": pay}})
@@ -314,6 +343,11 @@ async def pay_full(bid: str, body: PayIn, user=Depends(require("Finance", "Manag
             raise HTTPException(400, "Booking belum DEAL")
     if not body.proofFiles:
         raise HTTPException(400, "Bukti transfer wajib diunggah")
+    await check_files(body.proofFiles + body.invoiceFiles)
+    dp = int((b.get("payment") or {}).get("dpRp") or 0)
+    sisa = total_cost(b.get("costs")) + await commission_due(b) - dp
+    if body.amountRp <= 0 or body.amountRp > sisa:
+        raise HTTPException(400, f"Nominal pelunasan harus > 0 dan maksimal sisa tagihan {fmt_rp(max(sisa, 0))}")
     pay = b.get("payment") or {}
     pay.update({"paidRp": body.amountRp, "paidAt": now_iso(), "proof": body.proofFiles, "invoice": body.invoiceFiles,
                 "paidBy": user["name"], "note": body.note, "overrideReason": body.overrideReason or None})

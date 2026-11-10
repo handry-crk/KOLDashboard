@@ -38,4 +38,4 @@ export async function upload(file) {
   return api('/api/files', { method: 'POST', body: fd })
 }
 
-export const fileUrl = (id) => `${BASE}/api/files/${id}`
+export const fileUrl = (id) => `${BASE}/api/files/${id}?t=${encodeURIComponent(auth.token || '')}`

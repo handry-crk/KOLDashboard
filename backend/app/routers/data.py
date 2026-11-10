@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 from ..auth import current_user, require, LEADS
 from ..db import db, now_iso, audit, parse_date
-from ..logic import CATEGORIES, COMMITTED, total_cost, get_settings
+from ..logic import CATEGORIES, COMMITTED, total_cost, get_settings, committed_cost, campaign_allocation
 from .campaigns import fmt_rp
 
 router = APIRouter(prefix="/api")
@@ -107,11 +107,12 @@ async def budget(month: str, user=Depends(current_user)):
     rows = []
     for cat in CATEGORIES:
         cs = [c for c in camps if c["category"] == cat]
-        alloc = sum(int(c.get("budgetRp") or 0) for c in cs if c.get("gateStatus") != "HOLD")
+        alloc = 0
+        for c in cs:
+            alloc += await campaign_allocation(c)
         bs = [b for b in bookings if cids[b["campaignId"]]["category"] == cat]
-        committed = sum(total_cost(b.get("costs")) for b in bs if b["status"] in COMMITTED)
-        paid = sum((b.get("payment") or {}).get("paidRp", 0) or 0 for b in bs if b["status"] == "PAID") + \
-            sum((b.get("payment") or {}).get("dpRp", 0) or 0 for b in bs if b["status"] != "PAID")
+        committed = sum(committed_cost(b) for b in bs)
+        paid = sum(int((b.get("payment") or {}).get("paidRp") or 0) + int((b.get("payment") or {}).get("dpRp") or 0) for b in bs)
         planned = int((plans.get(cat) or {}).get("plannedRp", 0))
         rows.append({"category": cat, "plannedRp": planned, "allocatedRp": alloc, "committedRp": committed, "paidRp": paid,
                      "remainingRp": planned - committed, "unallocatedRp": planned - alloc, "notes": (plans.get(cat) or {}).get("notes", ""),
@@ -131,8 +132,8 @@ async def set_budget(body: BudgetIn, user=Depends(require("Manager"))):
     if others + body.plannedRp > settings["monthlyKolPagu"]:
         raise HTTPException(400, f"Total plan melebihi pagu KOL bulanan {fmt_rp(settings['monthlyKolPagu'])} (sisa {fmt_rp(settings['monthlyKolPagu'] - others)})")
     alloc = 0
-    async for c in db.campaigns.find({"month": body.month, "category": body.category, "gateStatus": {"$ne": "HOLD"}}, {"_id": 0}):
-        alloc += int(c.get("budgetRp") or 0)
+    async for c in db.campaigns.find({"month": body.month, "category": body.category}, {"_id": 0}):
+        alloc += await campaign_allocation(c)
     if body.plannedRp < alloc:
         raise HTTPException(400, f"Plan tidak boleh di bawah budget campaign yang sudah dialokasikan ({fmt_rp(alloc)})")
     before = await db.budget.find_one({"month": body.month, "category": body.category}, {"_id": 0})

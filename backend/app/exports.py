@@ -28,6 +28,9 @@ def sheet(wb, title, headers, rows, widths=None, note=None):
     for ri, row in enumerate(rows, r0 + 1):
         for ci, v in enumerate(row, 1):
             c = ws.cell(ri, ci, v)
+            if isinstance(v, str) and v[:1] in ("=", "+", "-", "@"):
+                c.value = v
+                c.data_type = "s"  # cegah formula injection dari input user
             c.border = THIN
             if isinstance(v, float) and abs(v) < 50 and ci <= len(headers) and headers[ci - 1].lower().startswith(("er", "share", "compliance", "%")):
                 c.number_format = "0.0%"
