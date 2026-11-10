@@ -89,11 +89,9 @@ export function Field({ label, children, hint, className = '' }) {
 }
 
 export function MoneyInput({ value, onChange, ...p }) {
-  const [txt, setTxt] = useState(value ? new Intl.NumberFormat('id-ID').format(value) : '')
-  useEffect(() => { setTxt(value ? new Intl.NumberFormat('id-ID').format(value) : (value === 0 ? '0' : '')) }, [value])
-  return <input {...p} inputMode="numeric" className="input num" value={txt} placeholder="0"
-    onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, '') || 0); setTxt(e.target.value.replace(/[^\d.]/g, '')); onChange(n) }}
-    onBlur={() => setTxt(value ? new Intl.NumberFormat('id-ID').format(value) : '')} />
+  const fmtN = (n) => (n ? new Intl.NumberFormat('id-ID').format(n) : '')
+  return <input {...p} inputMode="numeric" className="input num" value={fmtN(value)} placeholder="0"
+    onChange={(e) => { const d = e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 13); onChange(d ? Number(d) : 0) }} />
 }
 
 export function MonthPicker({ value, onChange }) {

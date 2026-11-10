@@ -30,14 +30,19 @@ const NAV = [
   { to: '/laporan', label: 'Laporan', icon: '📄', roles: ['Manager', 'KOL TL', 'KOL Officer', 'Direksi'] },
   { to: '/pengaturan', label: 'Pengaturan', icon: '⚙️', roles: ['Manager', 'KOL TL'] },
 ]
-const MOBILE = { 'KOL Officer': ['/tugas', '/input', '/pipeline', '/kol', '/campaign'], 'KOL TL': ['/', '/tugas', '/input', '/pipeline', '/kol'],
-  Manager: ['/', '/tugas', '/campaign', '/pipeline', '/laporan'], Finance: ['/pembayaran', '/', '/budget', '/tugas'], Direksi: ['/', '/campaign', '/kol', '/laporan'] }
+const MOBILE = { 'KOL Officer': ['/tugas', '/input', '/pipeline', '/kol'], 'KOL TL': ['/', '/tugas', '/input', '/pipeline'],
+  Manager: ['/', '/tugas', '/campaign', '/pipeline'], Finance: ['/pembayaran', '/', '/budget', '/tugas'], Direksi: ['/', '/campaign', '/kol', '/laporan'] }
 export const HOME = { 'KOL Officer': '/tugas', Finance: '/pembayaran' }
 
 function Shell({ children }) {
   const { user, logout } = useApp()
+  const [menu, setMenu] = useState(false)
+  const loc = useLocation()
+  useEffect(() => { setMenu(false); window.scrollTo(0, 0) }, [loc.pathname])
   const nav = NAV.filter((n) => n.roles.includes(user.role))
   const mob = MOBILE[user.role].map((p) => NAV.find((n) => n.to === p))
+  const rest = nav.filter((n) => !MOBILE[user.role].includes(n.to))
+  const restActive = rest.some((n) => (n.to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(n.to)))
   return (
     <div className="min-h-screen pb-24 sm:pb-8">
       <header className="no-print px-3 pt-3 sm:px-6">
@@ -63,13 +68,34 @@ function Shell({ children }) {
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6">{children}</main>
-      <nav className="no-print fixed inset-x-0 bottom-0 z-40 grid border-t border-brand-line bg-white sm:hidden" style={{ gridTemplateColumns: `repeat(${mob.length}, 1fr)` }}>
+      <nav className="no-print fixed inset-x-0 bottom-0 z-40 grid border-t border-brand-line bg-white pb-[env(safe-area-inset-bottom)] sm:hidden" style={{ gridTemplateColumns: `repeat(${mob.length + 1}, 1fr)` }}>
         {mob.map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => `flex min-h-[60px] flex-col items-center justify-center text-[11px] font-semibold ${isActive ? 'text-brand' : 'text-ink/60'}`}>
             <span className="text-lg leading-none">{n.icon}</span>{n.label}
           </NavLink>
         ))}
+        <button onClick={() => setMenu(true)} className={`flex min-h-[60px] flex-col items-center justify-center text-[11px] font-semibold ${restActive ? 'text-brand' : 'text-ink/60'}`} aria-label="Menu lainnya">
+          <span className="text-lg leading-none">☰</span>Lainnya
+        </button>
       </nav>
+      {menu && (
+        <div className="no-print fixed inset-0 z-50 flex items-end bg-black/40 sm:hidden" onClick={() => setMenu(false)}>
+          <div className="w-full rounded-t-3xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <div><div className="font-bold">{user.name}</div><div className="text-xs text-ink/60">{user.role === 'KOL TL' ? 'KOL Team Leader' : user.role}</div></div>
+              <button onClick={() => setMenu(false)} className="h-10 w-10 rounded-full text-2xl leading-none hover:bg-brand-soft" aria-label="Tutup">×</button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {rest.map((n) => (
+                <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => `flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-2xl border text-xs font-semibold ${isActive ? 'border-brand bg-brand-soft text-brand' : 'border-brand-line'}`}>
+                  <span className="text-xl leading-none">{n.icon}</span>{n.label}
+                </NavLink>
+              ))}
+            </div>
+            <button onClick={logout} className="btn-ghost mt-3 w-full text-brand">Keluar</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -20,7 +20,34 @@ export default function Pembayaran() {
       <div className="flex gap-2">
         {[['queue', `Siap dilunasi (${d.queue.length})`], ['running', `Berjalan / DP (${d.running.length})`], ['paid', `Lunas (${d.paid.length})`]].map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`btn-sm btn ${tab === k ? 'bg-brand text-white' : 'border border-brand-line'}`}>{l}</button>)}
       </div>
-      <Section>
+      <div className="space-y-2 sm:hidden">
+        {!rows.length && <p className="card p-4 text-sm text-ink/50">Kosong.</p>}
+        {rows.map((b) => {
+          const dp = b.payment?.dpRp || 0
+          return (
+            <div key={b.id} className="card p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0"><Link to={`/booking/${b.id}`} className="font-bold">{b.kol.name}</Link> <TierBadge t={b.tierAtBooking} /><div className="truncate text-xs text-ink/60">{b.campaign.category} · {b.campaign.name}</div></div>
+                <StatusBadge s={b.status} />
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                <div><div className="text-ink/50">Kontrak</div><div className="num font-semibold">{rp(b.totalCostRp)}</div></div>
+                <div><div className="text-ink/50">DP</div><div className="num">{rp(dp)}</div></div>
+                <div><div className="text-ink/50">{tab === 'paid' ? 'Lunas' : 'Sisa'}</div><div className="num font-bold">{tab === 'paid' ? date(b.payment?.paidAt) : rp(b.totalCostRp + (b.commissionDue || 0) - dp)}</div></div>
+              </div>
+              {b.commissionDue > 0 && tab !== 'paid' && <div className="mt-1 text-[11px] text-ink/50">Sisa termasuk komisi {rp(b.commissionDue)}</div>}
+              <div className="mt-1 text-xs text-ink/60">Rekening: {b.kolBank || '—'}</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {fin && tab === 'queue' && <button className="btn-ok btn-sm flex-1" onClick={() => setPay({ b, mode: 'pay' })}>Lunasi</button>}
+                {fin && tab === 'running' && !dp && <button className="btn-ghost btn-sm flex-1" onClick={() => setPay({ b, mode: 'dp' })}>Catat DP</button>}
+                {user.role === 'Manager' && tab === 'running' && <button className="btn-ghost btn-sm" onClick={() => setPay({ b, mode: 'override' })}>Override</button>}
+                {tab === 'paid' && b.payment?.proof?.map((p) => <a key={p} href={fileUrl(p)} target="_blank" rel="noreferrer" className="text-xs text-brand underline">bukti transfer</a>)}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <Section className="hidden sm:block">
         {!rows.length ? <p className="text-sm text-ink/50">Kosong.</p> : (
           <Table head={['KOL', 'Campaign', 'Status', { label: 'Total kontrak', right: 1 }, { label: 'DP', right: 1 }, { label: 'Sisa', right: 1 }, 'Rekening', '']}>
             {rows.map((b) => {

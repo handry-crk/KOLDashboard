@@ -102,7 +102,7 @@ export function CampaignDetail() {
           <Table head={['Metric', { label: 'Target', right: 1 }, { label: 'Actual', right: 1 }, { label: 'Achievement', right: 1 }]}>
             {rep.pva.map((p) => {
               const f = p.fmt === 'rp' ? rp : p.fmt === 'x' ? times : num
-              return <tr key={p.metric}><td className="td">{p.metric}</td><td className="td text-right num text-ink/60">{p.target ? f(p.target) : '–'}</td><td className="td text-right num font-semibold">{f(p.actual)}</td>
+              return <tr key={p.metric}><td className="td min-w-[150px]">{p.metric}</td><td className="td text-right num text-ink/60">{p.target ? f(p.target) : '–'}</td><td className="td text-right num font-semibold">{f(p.actual)}</td>
                 <td className={`td text-right num font-semibold ${p.achievement == null ? '' : p.achievement >= 1 ? 'text-ok' : p.achievement >= 0.7 ? 'text-amber-700' : 'text-brand'}`}>{p.achievement == null ? '–' : pct(p.achievement, 0)}</td></tr>
             })}
           </Table>

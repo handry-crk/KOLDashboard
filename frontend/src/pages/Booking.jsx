@@ -37,6 +37,7 @@ export default function BookingPage() {
     POSTED: [['REPORT_SUBMITTED', 'Submit report']], REPORT_DUE: [['REPORT_SUBMITTED', 'Submit report']],
   }[b.status] || []
   const fields = b.requiredFields
+  const hasDirect = meta.categories[b.campaign.category]?.evidence.includes('DIRECT')
   return (
     <div className="space-y-4">
       <Link to={`/campaign/${b.campaign.id}`} className="text-sm font-semibold text-brand">‹ {b.campaign.name}</Link>
@@ -77,8 +78,8 @@ export default function BookingPage() {
         <Tile label="Views" value={short(m.views)} sub={`CPV ${rp(m.cpv)} (bench ${rp(m.benchmark.cpv)})`} />
         <Tile label="ER" value={pct(m.er)} sub={`bench ${pct(m.benchmark.er)}`} />
         <Tile label={m.outcomeLabel} value={num(m.outcome)} sub={`${rp(m.costPerOutcome)}/outcome (bench ${rp(m.benchmark.cpo)})`} />
-        <Tile label="Revenue DIRECT" value={rpShort(m.revenueDirect)} sub={m.roas != null ? `ROAS ${times(m.roas)}` : (m.revenueAssisted ? `ASSISTED ${rpShort(m.revenueAssisted)}` : '')} />
-        <Tile label="ROI DIRECT" value={times(m.roiDirect)} sub={m.revenueAssisted ? `+ASSISTED ${times(m.roiTotal)}` : ''} />
+        <Tile label="Revenue DIRECT" value={hasDirect ? rpShort(m.revenueDirect) : '–'} sub={m.roas != null ? `ROAS ${times(m.roas)}` : (m.revenueAssisted ? `ASSISTED ${rpShort(m.revenueAssisted)}` : (!hasDirect ? 'Kategori tanpa DIRECT' : ''))} />
+        <Tile label="ROI DIRECT" value={hasDirect ? times(m.roiDirect) : '–'} sub={m.revenueAssisted ? `+ASSISTED ${times(m.roiTotal)}` : ''} />
       </div>
 
       <Section title="Konten & metrik" right={editor && ['DEAL', 'BRIEF_SENT', 'DRAFT_REVIEW', 'POSTED', 'REPORT_DUE'].includes(b.status) && <button className="btn-ghost btn-sm" onClick={() => setAddContent(true)}>+ Konten</button>}>

@@ -66,7 +66,7 @@ export default function Kols() {
 
 export function KolDetail() {
   const { id } = useParams()
-  const { can } = useApp()
+  const { can, meta } = useApp()
   const { data: k, error, reload } = useApi(`/api/kols/${id}`)
   const [edit, setEdit] = useState(false)
   const nav = useNavigate()
@@ -117,7 +117,7 @@ export function KolDetail() {
                   <td className="td text-right num">{rpShort(h.metrics.cost)}</td><td className="td text-right num">{short(h.metrics.views)}</td>
                   <td className="td text-right num">{pct(h.metrics.er)}</td><td className="td text-xs"><b className="num">{num(h.metrics.outcome)}</b> {h.metrics.outcomeLabel}</td>
                   <td className="td text-right num">{rp(h.metrics.costPerOutcome)} <span className="text-ink/40">({rp(h.metrics.benchmark.cpo)})</span></td>
-                  <td className="td text-right num">{times(h.metrics.roiDirect)}</td>
+                  <td className="td text-right num">{meta.categories[h.campaign.category]?.evidence.includes('DIRECT') ? times(h.metrics.roiDirect) : '–'}</td>
                 </tr>
               ))}
             </Table>

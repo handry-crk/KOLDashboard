@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../App'
 import { BookingForm } from '../components/forms'
 import { Badge, ErrorBox, Loading, MonthPicker, StatusBadge, STATUS_LABEL, TierBadge, useApi } from '../components/ui'
-import { num, rpShort, short, thisMonth } from '../fmt'
+import { date, num, rpShort, short, thisMonth } from '../fmt'
 
 export default function Pipeline() {
   const { meta, user } = useApp()
@@ -23,14 +23,14 @@ export default function Pipeline() {
       <div className="flex items-center justify-between gap-1"><span className="text-sm font-bold leading-tight">{b.kol.name}</span><TierBadge t={b.tierAtBooking} /></div>
       <div className="mt-0.5 text-[11px] text-ink/60">{b.campaign.category} · {b.campaign.name}</div>
       <div className="mt-1 flex items-center justify-between text-xs"><span className="num font-semibold">{rpShort(b.totalCostRp)}</span>{b.metrics.views > 0 && <span className="num text-ink/60">{short(b.metrics.views)} views</span>}</div>
-      {b.deliverables?.[0]?.dueDate && !b.metrics.contents && <div className="text-[11px] text-ink/50">due {b.deliverables[0].dueDate}</div>}
+      {b.deliverables?.[0]?.dueDate && !b.metrics.contents && <div className="text-[11px] text-ink/50">due {date(b.deliverables[0].dueDate)}</div>}
       {b.metrics.flags.map((f) => <div key={f.code} className={`mt-1 text-[11px] font-semibold ${f.level === 'red' ? 'text-brand' : 'text-amber-700'}`}>⚠ {f.label}</div>)}
     </button>
   )
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-extrabold">Pipeline booking</h1>
+        <div><h1 className="text-xl font-extrabold">Pipeline booking</h1><p className="hidden text-xs text-ink/50 sm:block">Geser ke samping untuk melihat semua status →</p></div>
         <button className="btn-primary" onClick={() => setOpen(true)}>+ Booking</button>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -49,7 +49,7 @@ export default function Pipeline() {
             </div>
             <div className="space-y-2">{rows.filter((b) => b.status === mobileStatus).map(card)}{!rows.some((b) => b.status === mobileStatus) && <p className="py-6 text-center text-sm text-ink/50">Kosong</p>}</div>
           </div>
-          <div className="hidden gap-2 overflow-x-auto pb-3 sm:flex">
+          <div className="hidden items-start gap-2 overflow-x-auto pb-3 sm:flex">
             {cols.map((s) => {
               const list = rows.filter((b) => b.status === s)
               return (
