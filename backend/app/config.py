@@ -1,7 +1,8 @@
 import os
 from zoneinfo import ZoneInfo
 
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://127.0.0.1:27017")
+MONGO_URL = os.getenv("MONGO_URL", "").strip() or "mongodb://127.0.0.1:27017"
+MONGO_URL_SET = bool(os.getenv("MONGO_URL", "").strip())
 DB_NAME = os.getenv("DB_NAME", "kol_ledger")
 JWT_SECRET = os.getenv("JWT_SECRET", "ganti-secret-ini-di-railway")
 JWT_HOURS = int(os.getenv("JWT_HOURS", "12"))

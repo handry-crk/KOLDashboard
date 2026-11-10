@@ -35,9 +35,9 @@ for r in (auth_users, kols, campaigns, bookings, contents, data, reports, admin)
 @app.get("/api/health")
 async def health():
     from .db import client
-    from .config import MONGO_URL
-    if not os.getenv("MONGO_URL", "").strip():
-        return {"ok": False, "db": "GAGAL", "detail": "Variable MONGO_URL kosong atau referensinya tidak ter-resolve, jadi aplikasi mencoba localhost.",
+    from .config import MONGO_URL_SET
+    if not MONGO_URL_SET and os.getenv("RAILWAY_ENVIRONMENT"):
+        return {"ok": False, "db": "GAGAL", "detail": "Variable MONGO_URL tidak ada / kosong / referensinya tidak ter-resolve di service ini, jadi aplikasi mencoba localhost.",
                 "hint": "Di Railway, isi MONGO_URL lewat 'Add Reference' ke service MongoDB (mis. ${{MongoDB.MONGO_URL}}) — nama service harus sama persis."}
     try:
         await client.admin.command("ping")
