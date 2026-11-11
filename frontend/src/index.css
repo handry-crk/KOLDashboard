@@ -23,3 +23,57 @@ input, select, textarea { font-size: 16px; }
   .print-break { page-break-before: always; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ===================== Animasi (tema KOL / sosial media) ===================== */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+@keyframes pop { 0% { transform: scale(.6) } 60% { transform: scale(1.15) } 100% { transform: scale(1) } }
+@keyframes shimmer { from { background-position: -400px 0 } to { background-position: 400px 0 } }
+@keyframes barGrow { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+@keyframes gradientPan { 0% { background-position: 0% 50% } 50% { background-position: 100% 50% } 100% { background-position: 0% 50% } }
+@keyframes floatUp {
+  0% { transform: translateY(0) translateX(0) scale(.7) rotate(0deg); opacity: 0 }
+  12% { opacity: .9 }
+  50% { transform: translateY(-45%) translateX(10px) scale(1) rotate(8deg) }
+  100% { transform: translateY(-110%) translateX(-6px) scale(1.1) rotate(-6deg); opacity: 0 }
+}
+@keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.75) } 70% { box-shadow: 0 0 0 7px rgba(255,255,255,0) } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0) } }
+@keyframes attnPulse { 0% { box-shadow: 0 0 0 0 rgba(215,25,31,.35) } 70% { box-shadow: 0 0 0 10px rgba(215,25,31,0) } 100% { box-shadow: 0 0 0 0 rgba(215,25,31,0) } }
+@keyframes shine { 0% { transform: translateX(-120%) skewX(-20deg) } 60%, 100% { transform: translateX(220%) skewX(-20deg) } }
+@keyframes burst {
+  0% { transform: translate(-50%, -50%) scale(.4) rotate(0); opacity: 1 }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(var(--rot)); opacity: 0 }
+}
+@keyframes rowIn { from { opacity: 0 } to { opacity: 1 } }
+
+/* kartu muncul berurutan + terangkat saat hover */
+.card { animation: fadeUp .5s cubic-bezier(.2,.7,.2,1) both; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.card:nth-child(2) { animation-delay: .05s } .card:nth-child(3) { animation-delay: .1s } .card:nth-child(4) { animation-delay: .15s }
+.card:nth-child(5) { animation-delay: .2s } .card:nth-child(6) { animation-delay: .25s } .card:nth-child(7) { animation-delay: .3s }
+.card:nth-child(8) { animation-delay: .35s } .card:nth-child(n+9) { animation-delay: .4s }
+a.card:hover, button.card:hover, .lift:hover { transform: translateY(-3px); box-shadow: 0 12px 24px -14px rgba(179,46,38,.45); }
+.lift { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+tbody tr { animation: rowIn .4s ease both; }
+
+/* bar progres tumbuh dari kiri */
+.bar-grow { transform-origin: left center; animation: barGrow .9s cubic-bezier(.2,.7,.2,1) both .15s; }
+
+/* skeleton */
+.skeleton { background: linear-gradient(90deg, #f6eded 0px, #fbf5f5 120px, #f6eded 240px); background-size: 800px 100%; animation: shimmer 1.3s linear infinite; border-radius: 12px; }
+
+/* header gradien bergerak + ikon reaksi melayang */
+.hdr-gradient { background: linear-gradient(110deg, #D7191F 0%, #B32E26 35%, #E8343A 65%, #D7191F 100%); background-size: 300% 300%; animation: gradientPan 14s ease infinite; }
+.float-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.float-layer span { position: absolute; bottom: -24px; font-size: 18px; opacity: 0; animation: floatUp 7s ease-in infinite; filter: drop-shadow(0 2px 3px rgba(0,0,0,.15)); }
+.live-dot { width: 7px; height: 7px; border-radius: 999px; background: #fff; animation: livePulse 1.6s ease-out infinite; }
+.attn { animation: fadeUp .5s both, attnPulse 2s ease-out 1s infinite; }
+.pop { animation: pop .4s cubic-bezier(.2,.7,.2,1) both; }
+.shine { position: relative; overflow: hidden; }
+.shine::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent); animation: shine 3.2s ease-in-out infinite; }
+.nav-active .nav-ico { display: inline-block; animation: pop .45s cubic-bezier(.2,.7,.2,1); }
+.fx-particle { position: fixed; z-index: 70; pointer-events: none; animation: burst 1.3s cubic-bezier(.15,.7,.3,1) forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .float-layer { display: none; }
+}
+@media print { .float-layer { display: none; } .card { animation: none; } }

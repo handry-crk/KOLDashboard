@@ -36,7 +36,7 @@ export default function Budget() {
                 <td className="td text-right num">{rp(r.paidRp)}</td>
                 <td className={`td text-right num ${r.remainingRp < 0 ? 'text-brand font-bold' : ''}`}>{rp(r.remainingRp)}</td>
                 <td className="td w-36">
-                  <div className="h-2 overflow-hidden rounded-full bg-brand-soft"><div className={`h-full ${r.warn ? 'bg-warn' : 'bg-brand'}`} style={{ width: `${Math.min(100, r.plannedRp ? (r.committedRp / r.plannedRp) * 100 : 0)}%` }} /></div>
+                  <div className="h-2 overflow-hidden rounded-full bg-brand-soft"><div className={`bar-grow h-full rounded-full ${r.warn ? 'bg-warn' : 'bg-brand'}`} style={{ width: `${Math.min(100, r.plannedRp ? (r.committedRp / r.plannedRp) * 100 : 0)}%` }} /></div>
                   <div className="text-[11px] text-ink/60">{r.plannedRp ? pct(r.committedRp / r.plannedRp, 0) : '–'}{r.warn && ' · > 90%'}</div>
                 </td>
                 <td className="td text-xs">{r.campaigns.map((c) => <div key={c.id}><Link className="text-brand underline" to={`/campaign/${c.id}`}>{c.name}</Link> {rpShort(c.budgetRp)}{c.code && ` · ${c.code}`}</div>)}</td>

@@ -4,6 +4,7 @@ import { api, fileUrl } from '../api'
 import { useApp } from '../App'
 import { ErrorBox, Field, FileDrop, Loading, Modal, MoneyInput, Section, StatusBadge, Table, TierBadge, useApi, useToast } from '../components/ui'
 import { date, rp } from '../fmt'
+import { celebrate } from '../components/fx'
 
 export default function Pembayaran() {
   const { can, user } = useApp()
@@ -96,7 +97,7 @@ function PayModal({ x, onClose, onDone }) {
   const submit = async () => {
     try {
       await api(`/api/bookings/${x.b.id}/${x.mode === 'dp' ? 'dp' : 'pay'}`, { method: 'POST', body: { amountRp: amt, proofFiles: proof, invoiceFiles: inv, overrideReason: x.mode === 'override' ? reason : '' } })
-      toast(x.mode === 'dp' ? 'DP tercatat' : 'Booking lunas'); setLastId(null); onClose(); onDone()
+      toast(x.mode === 'dp' ? 'DP tercatat' : 'Booking lunas 🎉'); if (x.mode !== 'dp') celebrate(); setLastId(null); onClose(); onDone()
     } catch (e) { setErr(e.message) }
   }
   return (

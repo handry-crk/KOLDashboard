@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { reducedMotion } from './fx'
 import { api, upload, fileUrl } from '../api'
 import { monthLabel, shiftMonth } from '../fmt'
 
@@ -21,7 +22,7 @@ export function Badge({ tone = 'grey', children, className = '' }) {
 }
 export const StatusBadge = ({ s }) => <Badge tone={STATUS_TONE[s]}>{STATUS_LABEL[s] || s}</Badge>
 const TIER_STYLE = { Nano: 'bg-[#FBE3E4] text-brand-deep', Micro: 'bg-[#F4B7BA] text-brand-deep', Macro: 'bg-[#E0555B] text-white', Mega: 'bg-brand-deep text-white' }
-export const TierBadge = ({ t }) => <span className={`inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-bold ${TIER_STYLE[t] || ''}`}>{t}</span>
+export const TierBadge = ({ t }) => <span className={`inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-bold ${TIER_STYLE[t] || ''} ${t === 'Mega' || t === 'Macro' ? 'shine' : ''}`}>{t}</span>
 export function EvidenceBadge({ e }) {
   const s = { DIRECT: 'bg-ok text-white border-ok', ASSISTED: 'bg-white text-amber-700 border-warn', EXPOSURE: 'bg-neutral-200 text-neutral-700 border-neutral-300' }[e]
   return <span title={EVIDENCE_HELP[e]} className={`inline-flex rounded-md border px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${s}`}>{e}</span>
@@ -32,14 +33,46 @@ export const EVIDENCE_HELP = {
   EXPOSURE: 'Views / reach saja',
 }
 export const GateBadge = ({ g }) => <Badge tone={{ GO: 'green', GWC: 'amber', HOLD: 'red', PENDING: 'grey', SELESAI: 'greenSolid' }[g] || 'grey'}>{g === 'GWC' ? 'GO W/ COND.' : g}</Badge>
-export const ReviewBadge = ({ r }) => r ? <Badge tone={{ SCALE: 'greenSolid', KEEP: 'blue', STOP: 'red' }[r]}>{r}</Badge> : <span className="text-xs text-neutral-400">–</span>
+export const ReviewBadge = ({ r }) => r ? <Badge className={r === 'SCALE' ? 'shine' : ''} tone={{ SCALE: 'greenSolid', KEEP: 'blue', STOP: 'red' }[r]}>{r === 'SCALE' ? '🚀 ' : ''}{r}</Badge> : <span className="text-xs text-neutral-400">–</span>
 export const Dot = ({ c }) => <span className={`inline-block h-2.5 w-2.5 rounded-full ${{ green: 'bg-ok', amber: 'bg-warn', red: 'bg-brand', grey: 'bg-neutral-300' }[c]}`} />
 
-export function Tile({ label, value, sub, tone, onClick, help }) {
+export function FloatingReactions({ count = 10 }) {
+  const icons = ['❤️', '▶️', '💬', '⭐', '👍', '🔥', '📸', '✨']
   return (
-    <button type="button" onClick={onClick} title={help} className={`card p-3 text-left ${onClick ? 'hover:border-brand cursor-pointer' : 'cursor-default'} ${tone === 'red' ? 'border-brand bg-red-50' : ''}`}>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">{label}</div>
-      <div className={`mt-1 text-xl font-extrabold num ${tone === 'red' ? 'text-brand' : ''}`}>{value}</div>
+    <div className="float-layer" aria-hidden="true">
+      {Array.from({ length: count }).map((_, i) => (
+        <span key={i} style={{ left: `${(i * 97) % 100}%`, animationDelay: `${(i * 0.83) % 7}s`, animationDuration: `${6 + (i % 4)}s`, fontSize: `${14 + (i % 3) * 4}px` }}>{icons[i % icons.length]}</span>
+      ))}
+    </div>
+  )
+}
+
+// Angka yang menghitung naik saat pertama tampil / berubah
+export function CountUp({ value, format = (x) => String(Math.round(x)), duration = 900 }) {
+  const [v, setV] = useState(reducedMotion() ? value : 0)
+  const from = useRef(0)
+  useEffect(() => {
+    if (value === null || value === undefined || Number.isNaN(value)) return
+    if (reducedMotion()) { setV(value); return }
+    const start = performance.now(), a = from.current, b = value
+    let raf
+    const step = (t) => {
+      const k = Math.min(1, (t - start) / duration), e = 1 - Math.pow(1 - k, 3)
+      setV(a + (b - a) * e)
+      if (k < 1) raf = requestAnimationFrame(step); else from.current = b
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [value, duration])
+  if (value === null || value === undefined) return format(value)
+  return format(v)
+}
+
+export function Tile({ label, value, raw, format, sub, tone, onClick, help, icon }) {
+  return (
+    <button type="button" onClick={onClick} title={help} className={`card p-3 text-left ${onClick ? 'hover:border-brand cursor-pointer' : 'cursor-default'} ${tone === 'red' ? 'attn border-brand bg-red-50' : ''}`}>
+      <div className="flex items-center justify-between gap-1 text-[11px] font-semibold uppercase tracking-wide text-ink/60"><span>{label}</span>{icon && <span aria-hidden className="text-sm">{icon}</span>}</div>
+      <div className={`mt-1 text-xl font-extrabold num ${tone === 'red' ? 'text-brand' : ''}`}>{typeof raw === 'number' && format ? <CountUp value={raw} format={format} /> : value}</div>
       {sub && <div className="mt-0.5 text-xs text-ink/60">{sub}</div>}
     </button>
   )
@@ -59,7 +92,15 @@ export function Insight({ children }) {
   return <p className="mt-2 rounded-xl bg-brand-soft px-3 py-2 text-sm text-ink/80">💡 {children}</p>
 }
 
-export function Loading() { return <div className="p-8 text-center text-sm text-ink/50">Memuat…</div> }
+export function Loading() {
+  return (
+    <div className="space-y-3 py-2" role="status" aria-label="Memuat">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">{[0, 1, 2, 3].map((i) => <div key={i} className="skeleton h-20" />)}</div>
+      <div className="skeleton h-40" />
+      <div className="skeleton h-28" />
+    </div>
+  )
+}
 export function Empty({ children }) { return <div className="rounded-xl border border-dashed border-brand-line p-6 text-center text-sm text-ink/50">{children}</div> }
 export function ErrorBox({ msg }) { return msg ? <div className="rounded-xl border border-brand bg-red-50 px-3 py-2 text-sm text-brand">{msg}</div> : null }
 
@@ -72,7 +113,7 @@ export function Modal({ open, onClose, title, children, footer, wide }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onMouseDown={onClose}>
-      <div onMouseDown={(e) => e.stopPropagation()} className={`max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white sm:rounded-3xl ${wide ? 'sm:max-w-4xl' : 'sm:max-w-lg'}`}>
+      <div onMouseDown={(e) => e.stopPropagation()} className={`max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white sm:rounded-3xl ${wide ? 'sm:max-w-4xl' : 'sm:max-w-lg'}`} style={{ animation: 'fadeUp .28s cubic-bezier(.2,.7,.2,1) both' }}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-brand-line bg-white px-4 py-3">
           <h3 className="text-base font-bold">{title}</h3>
           <button onClick={onClose} className="h-9 w-9 rounded-full text-xl leading-none hover:bg-brand-soft" aria-label="Tutup">×</button>

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { api, auth } from './api'
-import { ToastProvider, Loading } from './components/ui'
+import { ToastProvider, Loading, FloatingReactions } from './components/ui'
 import Login from './pages/Login'
 import Ringkasan from './pages/Ringkasan'
 import Campaigns, { CampaignDetail } from './pages/Campaigns'
@@ -46,13 +46,14 @@ function Shell({ children }) {
   return (
     <div className="min-h-screen pb-24 sm:pb-8">
       <header className="no-print px-3 pt-3 sm:px-6">
-        <div className="mx-auto max-w-7xl rounded-2xl bg-brand px-4 py-3 text-white shadow-sm">
-          <div className="flex items-center justify-between gap-3">
+        <div className="hdr-gradient relative mx-auto max-w-7xl overflow-hidden rounded-2xl bg-brand px-4 py-3 text-white shadow-sm">
+          <FloatingReactions count={9} />
+          <div className="relative flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-lg font-black text-brand">AA</div>
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-widest text-white/80">Cimol Bojot AA · CRK</div>
-                <div className="text-lg font-extrabold leading-tight">KOL Ledger</div>
+                <div className="flex items-center gap-2 text-lg font-extrabold leading-tight">KOL Ledger <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold tracking-widest"><span className="live-dot" />LIVE</span></div>
               </div>
             </div>
             <div className="flex items-center gap-2 text-right">
@@ -60,9 +61,9 @@ function Shell({ children }) {
               <button onClick={logout} className="rounded-xl bg-white/15 px-3 py-2 text-xs font-semibold hover:bg-white/25">Keluar</button>
             </div>
           </div>
-          <nav className="mt-3 hidden flex-wrap gap-1 sm:flex">
+          <nav className="relative mt-3 hidden flex-wrap gap-1 sm:flex">
             {nav.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => `rounded-lg px-3 py-1.5 text-sm font-semibold ${isActive ? 'bg-white text-brand' : 'text-white/90 hover:bg-white/15'}`}>{n.label}</NavLink>
+              <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => `rounded-lg px-3 py-1.5 text-sm font-semibold transition ${isActive ? 'bg-white text-brand shadow-sm' : 'text-white/90 hover:-translate-y-0.5 hover:bg-white/15'}`}>{n.label}</NavLink>
             ))}
           </nav>
         </div>
@@ -70,8 +71,8 @@ function Shell({ children }) {
       <main className="mx-auto max-w-7xl px-3 py-4 sm:px-6">{children}</main>
       <nav className="no-print fixed inset-x-0 bottom-0 z-40 grid border-t border-brand-line bg-white pb-[env(safe-area-inset-bottom)] sm:hidden" style={{ gridTemplateColumns: `repeat(${mob.length + 1}, 1fr)` }}>
         {mob.map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => `flex min-h-[60px] flex-col items-center justify-center text-[11px] font-semibold ${isActive ? 'text-brand' : 'text-ink/60'}`}>
-            <span className="text-lg leading-none">{n.icon}</span>{n.label}
+          <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => `flex min-h-[60px] flex-col items-center justify-center text-[11px] font-semibold ${isActive ? 'nav-active text-brand' : 'text-ink/60'}`}>
+            <span className="nav-ico text-lg leading-none">{n.icon}</span>{n.label}
           </NavLink>
         ))}
         <button onClick={() => setMenu(true)} className={`flex min-h-[60px] flex-col items-center justify-center text-[11px] font-semibold ${restActive ? 'text-brand' : 'text-ink/60'}`} aria-label="Menu lainnya">

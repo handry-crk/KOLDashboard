@@ -37,7 +37,7 @@ export default function Campaigns() {
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5"><Badge tone="brand">{c.category}</Badge>{c.review && <ReviewBadge r={c.review} />}<span className="text-xs text-ink/50">{date(c.start)} – {date(c.end)}</span></div>
                 <div className="mt-3 flex justify-between text-xs"><span>Committed {rpShort(c.committed)}</span><span className="text-ink/60">dari {rpShort(c.budgetRp)}</span></div>
-                <div className="mt-1 h-2 overflow-hidden rounded-full bg-brand-soft"><div className={`h-full ${used > 0.9 ? 'bg-warn' : 'bg-brand'}`} style={{ width: `${Math.min(100, used * 100)}%` }} /></div>
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-brand-soft"><div className={`bar-grow h-full rounded-full ${used > 0.9 ? 'bg-warn' : 'bg-brand'}`} style={{ width: `${Math.min(100, used * 100)}%` }} /></div>
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                   <div><div className="text-[10px] uppercase text-ink/50">KOL</div><div className="font-bold num">{c.bookingCount}</div></div>
                   <div><div className="text-[10px] uppercase text-ink/50">Views</div><div className="font-bold num">{short(c.agg.views)}</div></div>
@@ -90,10 +90,10 @@ export function CampaignDetail() {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
-        <Tile label="Budget" value={rpShort(c.budgetRp)} sub={`Committed ${rpShort(c.committed)}`} />
-        <Tile label="Views" value={short(a.views)} sub={`CPV ${rp(a.cpv)}`} />
+        <Tile label="Budget" icon="💰" raw={c.budgetRp} format={rpShort} sub={`Committed ${rpShort(c.committed)}`} />
+        <Tile label="Views" icon="👀" raw={a.views} format={short} sub={`CPV ${rp(a.cpv)}`} />
         <Tile label="ER" value={pct(a.er)} />
-        <Tile label={c.config.outcomeLabel} value={num(a.outcome)} sub={`Cost/outcome ${rp(a.costPerOutcome)}`} />
+        <Tile label={c.config.outcomeLabel} icon="🎯" raw={a.outcome} format={num} sub={`Cost/outcome ${rp(a.costPerOutcome)}`} />
         <Tile label="Revenue DIRECT" value={c.config.evidence.includes('DIRECT') ? rpShort(a.revenueDirect) : '–'} sub={c.config.assisted ? `ASSISTED ${rpShort(a.revenueAssisted)}` : ''} />
         <Tile label="ROI DIRECT" value={times(a.roiDirect)} sub={c.config.assisted ? `+ASSISTED ${times(a.roiTotal)}` : (a.roas ? `ROAS ${times(a.roas)}` : '')} />
       </div>
@@ -127,7 +127,7 @@ export function CampaignDetail() {
                 <div className="mb-2 px-1 text-xs font-bold uppercase text-ink/60">{g} · {rows.length}</div>
                 <div className="space-y-2">
                   {rows.map((r) => (
-                    <button key={r.booking.id} onClick={() => nav(`/booking/${r.booking.id}`)} className="w-full rounded-xl border border-brand-line bg-white p-2.5 text-left hover:border-brand">
+                    <button key={r.booking.id} onClick={() => nav(`/booking/${r.booking.id}`)} className="lift w-full rounded-xl border border-brand-line bg-white p-2.5 text-left hover:border-brand">
                       <div className="flex items-center justify-between gap-1"><span className="text-sm font-bold leading-tight">{r.kol.name}</span><TierBadge t={r.booking.tierAtBooking} /></div>
                       <div className="mt-1 flex flex-wrap items-center gap-1"><StatusBadge s={r.booking.status} /><span className="text-xs num text-ink/60">{rpShort(r.metrics.cost)}</span></div>
                       {r.metrics.views > 0 && <div className="mt-1 text-[11px] text-ink/60 num">{short(r.metrics.views)} views · {num(r.metrics.outcome)} outcome</div>}

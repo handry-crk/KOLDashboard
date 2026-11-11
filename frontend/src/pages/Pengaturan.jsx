@@ -3,6 +3,7 @@ import { api } from '../api'
 import { useApp } from '../App'
 import { ErrorBox, Field, Loading, Modal, MoneyInput, Section, Table, useApi, useToast, Badge, ReasonModal } from '../components/ui'
 import { dateTime } from '../fmt'
+import { celebrate } from '../components/fx'
 
 const ROLE_LABEL = { 'KOL TL': 'KOL Team Leader', 'KOL Officer': 'KOL Officer' }
 
@@ -151,7 +152,7 @@ function Pending() {
   const [rej, setRej] = useState(null)
   useEffect(() => { if (window.location.hash === '#pendaftar') document.getElementById('pendaftar')?.scrollIntoView() }, [data])
   const approve = async (u) => {
-    try { await api(`/api/users/${u.id}/approve`, { method: 'POST', body: { role: roles[u.id] || u.role } }); toast(`${u.name} disetujui`); reload() } catch (e) { toast(e.message, 'err') }
+    try { await api(`/api/users/${u.id}/approve`, { method: 'POST', body: { role: roles[u.id] || u.role } }); toast(`${u.name} disetujui`); celebrate(); reload() } catch (e) { toast(e.message, 'err') }
   }
   return (
     <Section title={<span id="pendaftar">Pendaftar menunggu approval {data?.length ? <Badge tone="amber">{data.length}</Badge> : null}</span>}>

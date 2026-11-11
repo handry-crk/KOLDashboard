@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { download } from '../api'
-import { Dot, EvidenceBadge, EVIDENCE_HELP, Insight, Loading, ErrorBox, MonthPicker, Section, Tile, TierBadge, StatusBadge, Table, useApi, useToast, Badge } from '../components/ui'
+import { CountUp, Dot, EvidenceBadge, EVIDENCE_HELP, Insight, Loading, ErrorBox, MonthPicker, Section, Tile, TierBadge, StatusBadge, Table, useApi, useToast, Badge } from '../components/ui'
 import { num, pct, rp, rpShort, short, thisMonth, times, monthLabel } from '../fmt'
 
 export const C_COST = '#2F6DB5'
@@ -51,18 +51,18 @@ function Body({ d, month, nav, showFlags, setShowFlags }) {
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
         <div className="card col-span-2 p-3">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-ink/60">Budget KOL {monthLabel(month)}</div>
-          <div className="mt-1 flex items-baseline gap-2"><span className="text-xl font-extrabold num">{rpShort(t.committed)}</span><span className="text-xs text-ink/60">committed dari {rpShort(t.pagu)}</span></div>
+          <div className="mt-1 flex items-baseline gap-2"><span className="text-xl font-extrabold num"><CountUp value={t.committed} format={rpShort} /></span><span className="text-xs text-ink/60">committed dari {rpShort(t.pagu)}</span></div>
           <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-brand-soft">
-            <div className="h-full bg-brand" style={{ width: `${Math.min(100, (t.committed / (t.pagu || 1)) * 100)}%` }} />
+            <div className="bar-grow h-full rounded-full bg-gradient-to-r from-brand to-[#E8343A]" style={{ width: `${Math.min(100, (t.committed / (t.pagu || 1)) * 100)}%` }} />
           </div>
           <div className="mt-1 text-xs text-ink/60">Dibayar (DP + lunas): {rpShort(t.paid)}</div>
         </div>
-        <Tile label="Konten tayang" value={num(t.contents)} sub={`${short(t.views)} views`} />
-        <Tile label="Revenue DIRECT" value={rpShort(t.revenueDirect)} sub={`ASSISTED ${rpShort(t.revenueAssisted)} (terpisah)`} help={EVIDENCE_HELP.DIRECT} />
-        <Tile label="ROI DIRECT (GM)" value={times(t.roiDirect)} sub={`+ASSISTED: ${times(t.roiTotal)}`} help="Revenue × GM blended ÷ biaya" />
-        <Tile label="ROAS" value={times(t.roas)} sub="Frozen + K. Kuning + TT GO" />
-        <Tile label="Report compliance" value={pct(t.compliance, 0)} sub={`${t.approvedCount}/${t.dueCount} lewat H+7`} />
-        <Tile label="Booking tanpa report" value={num(t.noReport)} sub={rpShort(t.noReportCost) + ' tertahan'} tone={t.noReport ? 'red' : undefined} onClick={flagsRef} />
+        <Tile label="Konten tayang" icon="▶️" raw={t.contents} format={num} sub={`${short(t.views)} views`} />
+        <Tile label="Revenue DIRECT" icon="💰" raw={t.revenueDirect} format={rpShort} sub={`ASSISTED ${rpShort(t.revenueAssisted)} (terpisah)`} help={EVIDENCE_HELP.DIRECT} />
+        <Tile label="ROI DIRECT (GM)" icon="📈" raw={t.roiDirect} format={times} value={times(t.roiDirect)} sub={`+ASSISTED: ${times(t.roiTotal)}`} help="Revenue × GM blended ÷ biaya" />
+        <Tile label="ROAS" icon="🛒" raw={t.roas} format={times} value={times(t.roas)} sub="Frozen + K. Kuning + TT GO" />
+        <Tile label="Report compliance" icon="✅" raw={t.compliance} format={(x) => pct(x, 0)} value={pct(t.compliance, 0)} sub={`${t.approvedCount}/${t.dueCount} lewat H+7`} />
+        <Tile label="Booking tanpa report" icon="⚠️" raw={t.noReport} format={num} sub={rpShort(t.noReportCost) + ' tertahan'} tone={t.noReport ? 'red' : undefined} onClick={flagsRef} />
       </div>
       {d.insights.summary?.length > 0 && (
         <div className="card p-4"><ul className="space-y-1 text-sm">{d.insights.summary.map((s, i) => <li key={i}>• {s}</li>)}</ul>
@@ -106,8 +106,8 @@ function Body({ d, month, nav, showFlags, setShowFlags }) {
                   <YAxis tickFormatter={(v) => rpShort(v).replace('Rp', '')} tick={{ fontSize: 11, fill: '#6b6060' }} tickLine={false} axisLine={false} width={48} />
                   <Tooltip content={<ChartTip />} cursor={{ fill: '#FBF1F1' }} />
                   <Legend iconType="square" wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="spend" name="Biaya KOL" fill={C_COST} radius={[4, 4, 0, 0]} maxBarSize={28} />
-                  <Bar dataKey="revenueDirect" name="Revenue DIRECT" fill={C_REV} radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="spend" name="Biaya KOL" fill={C_COST} radius={[4, 4, 0, 0]} maxBarSize={28} animationDuration={900} />
+                  <Bar dataKey="revenueDirect" name="Revenue DIRECT" fill={C_REV} radius={[4, 4, 0, 0]} maxBarSize={28} animationBegin={200} animationDuration={900} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -122,7 +122,7 @@ function Body({ d, month, nav, showFlags, setShowFlags }) {
                 <XAxis dataKey="tier" tick={{ fontSize: 12, fill: '#6b6060' }} tickLine={false} axisLine={{ stroke: '#EBD9DA' }} />
                 <YAxis tickFormatter={(v) => 'Rp' + v} tick={{ fontSize: 11, fill: '#6b6060' }} tickLine={false} axisLine={false} width={52} />
                 <Tooltip content={<ChartTip fmt={rp} />} cursor={{ fill: '#FBF1F1' }} />
-                <Bar dataKey="cpv" name="CPV" fill="#B32E26" radius={[4, 4, 0, 0]} maxBarSize={44} label={{ position: 'top', fontSize: 11, fill: '#1F1A1A', formatter: (v) => rp(v) }} />
+                <Bar dataKey="cpv" name="CPV" fill="#B32E26" radius={[4, 4, 0, 0]} maxBarSize={44} animationDuration={1000} label={{ position: 'top', fontSize: 11, fill: '#1F1A1A', formatter: (v) => rp(v) }} />
               </BarChart>
             </ResponsiveContainer>
           </div>

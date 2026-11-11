@@ -19,7 +19,7 @@ export default function Pipeline() {
   const rows = useMemo(() => (data || []).filter((b) => (!cat || b.campaign.category === cat) && (!tier || b.tierAtBooking === tier) && (!mine || b.createdById === user.id) && (!overdue || b.metrics.flags.some((f) => f.level === 'red'))), [data, cat, tier, mine, overdue, user.id])
   const cols = meta.statuses
   const card = (b) => (
-    <button key={b.id} onClick={() => nav(`/booking/${b.id}`)} className={`w-full rounded-xl border bg-white p-2.5 text-left hover:border-brand ${b.metrics.flags.some((f) => f.level === 'red') ? 'border-brand' : 'border-brand-line'}`}>
+    <button key={b.id} onClick={() => nav(`/booking/${b.id}`)} className={`lift w-full rounded-xl border bg-white p-2.5 text-left hover:border-brand ${b.metrics.flags.some((f) => f.level === 'red') ? 'border-brand' : 'border-brand-line'}`}>
       <div className="flex items-center justify-between gap-1"><span className="text-sm font-bold leading-tight">{b.kol.name}</span><TierBadge t={b.tierAtBooking} /></div>
       <div className="mt-0.5 text-[11px] text-ink/60">{b.campaign.category} · {b.campaign.name}</div>
       <div className="mt-1 flex items-center justify-between text-xs"><span className="num font-semibold">{rpShort(b.totalCostRp)}</span>{b.metrics.views > 0 && <span className="num text-ink/60">{short(b.metrics.views)} views</span>}</div>

@@ -3,6 +3,7 @@ import { api } from '../api'
 import { useApp } from '../App'
 import { ErrorBox, Field, FileDrop, Modal, useToast } from './ui'
 import { todayISO } from '../fmt'
+import { celebrate } from './fx'
 
 const daysSince = (s) => Math.floor((new Date(todayISO() + 'T00:00:00') - new Date(s + 'T00:00:00')) / 864e5)
 
@@ -18,7 +19,7 @@ export function ContentForm({ open, onClose, booking, onSaved }) {
     setBusy(true); setErr('')
     try {
       const r = await api('/api/contents', { method: 'POST', body: { ...f, bookingId: booking.id } })
-      toast('Konten tercatat — status booking: Tayang'); onSaved?.(r); onClose()
+      toast('Konten tayang tercatat ▶️'); celebrate(undefined, undefined, 22); onSaved?.(r); onClose()
     } catch (e) {
       if (e.message.startsWith('handle_mismatch')) { setMismatch(true); setErr(e.message.replace('handle_mismatch: ', '')) } else setErr(e.message)
     } finally { setBusy(false) }

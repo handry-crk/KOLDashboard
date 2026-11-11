@@ -4,6 +4,7 @@ import { api, fileUrl } from '../api'
 import { useApp } from '../App'
 import { BookingForm } from '../components/forms'
 import { ContentForm, SnapshotForm } from '../components/inputs'
+import { celebrate } from '../components/fx'
 import { Badge, ErrorBox, Loading, ReasonModal, Section, StatusBadge, STATUS_LABEL, Table, TierBadge, Tile, useApi, useToast, GateBadge } from '../components/ui'
 import { date, dateTime, num, pct, rp, rpShort, short, times } from '../fmt'
 
@@ -23,11 +24,11 @@ export default function BookingPage() {
   const editor = can('Manager', 'KOL TL', 'KOL Officer')
   const lead = can('Manager', 'KOL TL')
   const go = async (to, reason = '') => {
-    try { await api(`/api/bookings/${id}/transition`, { method: 'POST', body: { to, reason } }); toast(`Status → ${STATUS_LABEL[to]}`); reload() }
+    try { await api(`/api/bookings/${id}/transition`, { method: 'POST', body: { to, reason } }); toast(`Status → ${STATUS_LABEL[to]}`); if (['DEAL', 'REPORT_APPROVED'].includes(to)) celebrate(); reload() }
     catch (e) { toast(e.message, 'err'); throw e }
   }
   const approve = async (decision, reason = '') => {
-    try { await api(`/api/bookings/${id}/approve`, { method: 'POST', body: { to: decision, reason } }); toast(decision === 'approve' ? 'Disetujui' : 'Ditolak'); reload() }
+    try { await api(`/api/bookings/${id}/approve`, { method: 'POST', body: { to: decision, reason } }); toast(decision === 'approve' ? 'Disetujui' : 'Ditolak'); if (decision === 'approve') celebrate(); reload() }
     catch (e) { toast(e.message, 'err'); throw e }
   }
   const next = {

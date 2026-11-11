@@ -96,8 +96,8 @@ export function KolDetail() {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <Tile label="Booking" value={num(live.length)} />
-        <Tile label="Total spend" value={rpShort(spend)} />
+        <Tile label="Booking" icon="🤝" raw={live.length} format={num} />
+        <Tile label="Total spend" icon="💰" raw={spend} format={rpShort} />
         <Tile label="Total views" value={short(views)} sub={`CPV ${rp(views ? spend / views : null)}`} />
         <Tile label="Rev. DIRECT" value={rpShort(live.reduce((a, h) => a + h.metrics.revenueDirect, 0))} />
       </div>
