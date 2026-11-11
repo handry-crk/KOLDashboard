@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, auth } from '../api'
 import { ErrorBox } from '../components/ui'
 
@@ -10,15 +10,34 @@ export default function Login({ onLogin }) {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => { api('/api/auth/users').then(setUsers).catch((e) => setErr(e.message)) }, [])
-  const submit = async (p = pin) => {
-    if (!sel || p.length < 4) return
+  const pinRef = useRef('')
+  const busyRef = useRef(false)
+  pinRef.current = pin
+  const submit = async (p = pinRef.current) => {
+    if (!sel || p.length < 4 || busyRef.current) return
+    busyRef.current = true
     setBusy(true); setErr('')
     try {
       const r = await api('/api/auth/login', { method: 'POST', body: { userId: sel.id, pin: p } })
       auth.set(r.token, r.user); onLogin(r.user)
-    } catch (e) { setErr(e.message); setPin('') } finally { setBusy(false) }
+    } catch (e) { setErr(e.message); setPin('') } finally { setBusy(false); busyRef.current = false }
   }
-  const press = (d) => { if (d === '⌫') return setPin((p) => p.slice(0, -1)); const np = (pin + d).slice(0, 8); setPin(np) }
+  // PIN bisa diketik dari keyboard fisik (angka, numpad, Backspace, Enter, Esc) tanpa harus klik tombol
+  useEffect(() => {
+    if (!sel || mode !== 'login') return
+    const h = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const digit = /^[0-9]$/.test(e.key) ? e.key : (/^Numpad[0-9]$/.test(e.code) ? e.code.slice(-1) : null)
+      if (digit) { e.preventDefault(); setErr(''); setPin((p) => (p + digit).slice(0, 8)) }
+      else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); setPin((p) => p.slice(0, -1)) }
+      else if (e.key === 'Enter') { e.preventDefault(); submit(pinRef.current) }
+      else if (e.key === 'Escape') { e.preventDefault(); setSel(null); setPin('') }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, mode])
+  const press = (d) => { setErr(''); if (d === '⌫') return setPin((p) => p.slice(0, -1)); setPin((p) => (p + d).slice(0, 8)) }
   return (
     <div className="flex min-h-screen items-center justify-center bg-brand-soft p-4">
       <div className="w-full max-w-md">
@@ -53,10 +72,10 @@ export default function Login({ onLogin }) {
               <div className="my-4 flex justify-center gap-2">
                 {Array.from({ length: Math.max(4, pin.length) }).map((_, i) => <span key={i} className={`h-3.5 w-3.5 rounded-full ${i < pin.length ? 'bg-brand' : 'bg-brand-line'}`} />)}
               </div>
-              <input type="password" inputMode="numeric" autoFocus className="sr-only" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))} onKeyDown={(e) => e.key === 'Enter' && submit()} aria-label="PIN" />
+              <p className="-mt-2 mb-3 hidden text-center text-xs text-ink/50 sm:block">Ketik PIN dengan keyboard lalu tekan Enter, atau klik tombol angka</p>
               <div className="grid grid-cols-3 gap-2">
                 {['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 'OK'].map((d) => (
-                  <button key={d} disabled={busy} onClick={() => (d === 'OK' ? submit() : press(d))}
+                  <button key={d} type="button" tabIndex={-1} disabled={busy} onMouseDown={(e) => e.preventDefault()} onClick={() => (d === 'OK' ? submit() : press(d))}
                     className={`h-14 rounded-2xl text-lg font-bold ${d === 'OK' ? 'bg-brand text-white' : 'bg-brand-soft hover:bg-brand-tint'}`}>{d}</button>
                 ))}
               </div>
