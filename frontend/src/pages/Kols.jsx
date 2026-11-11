@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
+import { RATE_ITEMS } from '../components/forms'
 import { useApp } from '../App'
 import { Badge, Empty, ErrorBox, Field, Loading, Modal, MoneyInput, ReviewBadge, Section, StatusBadge, Table, TierBadge, Tile, useApi, useToast } from '../components/ui'
 import { num, pct, rp, rpShort, short, times } from '../fmt'
@@ -103,7 +104,7 @@ export function KolDetail() {
       {flags.length > 0 && <div className="flex flex-wrap gap-1.5">{flags.map((f) => <Badge key={f} tone="amber">⚠ {f}</Badge>)}</div>}
       <div className="grid gap-4 lg:grid-cols-3">
         <Section title="Rate card" className="lg:col-span-1">
-          {Object.entries(k.rateCard || {}).filter(([, v]) => v).map(([f, v]) => <div key={f} className="flex justify-between text-sm"><span>{f}</span><span className="num">{rp(v)}</span></div>)}
+          {[...RATE_ITEMS, ...Object.keys(k.rateCard || {}).filter((x) => !RATE_ITEMS.includes(x))].filter((x) => k.rateCard?.[x]).map((x) => [x, k.rateCard[x]]).map(([f, v]) => <div key={f} className="flex justify-between text-sm"><span>{f}</span><span className="num">{rp(v)}</span></div>)}
           <div className="mt-3 text-xs text-ink/60">Rekening: {k.bankAccount || '–'}{k.npwp && ` · NPWP ${k.npwp}`}</div>
           {k.notes && <p className="mt-2 text-sm">{k.notes}</p>}
         </Section>
@@ -172,7 +173,7 @@ export function KolForm({ open, onClose, initial, onSaved }) {
         </Field>
         <div className="sm:col-span-3 grid grid-cols-2 gap-2 rounded-2xl bg-brand-soft p-3 sm:grid-cols-4">
           <div className="col-span-2 text-sm font-bold sm:col-span-4">Rate card</div>
-          {['Video TikTok', 'Reels', 'Story', 'Live'].map((r) => <Field key={r} label={r}><MoneyInput value={f.rateCard?.[r] || 0} onChange={(v) => set('rateCard', { ...f.rateCard, [r]: v })} /></Field>)}
+          {RATE_ITEMS.map((r) => <Field key={r} label={r}><MoneyInput value={f.rateCard?.[r] || 0} onChange={(v) => set('rateCard', { ...f.rateCard, [r]: v })} /></Field>)}
         </div>
         <Field label="Rekening bank"><input className="input" value={f.bankAccount || ''} onChange={(e) => set('bankAccount', e.target.value)} /></Field>
         <Field label="NPWP"><input className="input" value={f.npwp || ''} onChange={(e) => set('npwp', e.target.value)} /></Field>

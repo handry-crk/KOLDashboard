@@ -4,6 +4,9 @@ import { useApp } from '../App'
 import { ErrorBox, Field, Modal, MoneyInput, TierBadge, useToast } from './ui'
 import { rp, thisMonth } from '../fmt'
 
+export const RATE_ITEMS = ['Video TikTok', 'Reels', 'Story', 'Live', 'Visit', 'Mirroring', 'Visit Mirroring']
+const defaultRate = (k, cat) => (['Regular Visit', 'Info Lokasi'].includes(cat) && (k.rateCard?.['Visit Mirroring'] || k.rateCard?.Visit)) || k.rateCard?.['Video TikTok'] || 0
+
 const lastDay = (m) => { const [y, mo] = m.split('-').map(Number); return `${m}-${String(new Date(y, mo, 0).getDate()).padStart(2, '0')}` }
 
 export function CampaignForm({ open, onClose, initial, onSaved }) {
@@ -140,7 +143,7 @@ export function BookingForm({ open, onClose, initial, campaignId, onSaved }) {
               <input className="input" placeholder="Cari nama / handle / kota…" value={q} onChange={(e) => setQ(e.target.value)} />
               <div className="mt-1 max-h-48 overflow-y-auto rounded-xl border border-brand-line">
                 {filtered.map((k) => (
-                  <button key={k.id} type="button" onClick={() => setF((x) => ({ ...x, kolId: k.id, costs: { ...x.costs, feeRp: x.costs.feeRp || k.rateCard?.['Video TikTok'] || 0 } }))} className="flex w-full items-center justify-between border-b border-brand-line px-3 py-2 text-left text-sm last:border-0 hover:bg-brand-soft">
+                  <button key={k.id} type="button" onClick={() => setF((x) => ({ ...x, kolId: k.id, costs: { ...x.costs, feeRp: x.costs.feeRp || defaultRate(k, camp?.category) } }))} className="flex w-full items-center justify-between border-b border-brand-line px-3 py-2 text-left text-sm last:border-0 hover:bg-brand-soft">
                     <span><b>{k.name}</b> <span className="text-ink/50">@{k.handles?.tiktok}</span></span>
                     <span className="flex items-center gap-2"><span className="text-xs text-ink/50">{k.city}</span><TierBadge t={k.tier} />{k.recommendation && <span className="text-[10px] font-bold text-ink/60">{k.recommendation}</span>}</span>
                   </button>
@@ -160,6 +163,17 @@ export function BookingForm({ open, onClose, initial, campaignId, onSaved }) {
             <Field label="Lainnya"><MoneyInput value={f.costs.otherRp} onChange={(v) => setC('otherRp', v)} /></Field>
             {camp?.category === 'Keranjang Kuning' && <Field label="Komisi affiliate (%)" hint="Nominal komisi diambil dari report"><input className="input" inputMode="decimal" value={f.costs.commissionPct ?? ''} onChange={(e) => setC('commissionPct', Number(e.target.value))} /></Field>}
           </div>
+          {kol && RATE_ITEMS.some((r) => kol.rateCard?.[r]) && (
+            <div className="mt-2">
+              <div className="text-[11px] font-semibold text-ink/60">Rate card KOL — ketuk untuk isi fee:</div>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {RATE_ITEMS.filter((r) => kol.rateCard?.[r]).map((r) => (
+                  <button type="button" key={r} onClick={() => setC('feeRp', kol.rateCard[r])}
+                    className={`rounded-full border px-2.5 py-1 text-xs ${f.costs.feeRp === kol.rateCard[r] ? 'border-brand bg-brand text-white' : 'border-brand-line bg-white'}`}>{r} · {rp(kol.rateCard[r])}</button>
+                ))}
+              </div>
+            </div>
+          )}
           {remaining !== null && <p className={`mt-2 text-xs ${total > remaining ? 'font-semibold text-brand' : 'text-ink/60'}`}>Sisa budget campaign: {rp(remaining)}{total > remaining ? ' — biaya melebihi sisa budget' : ''}</p>}
           {kol && ['Macro', 'Mega'].includes(kol.tier) && <p className="mt-1 text-xs font-semibold text-amber-700">Tier {kol.tier}: wajib approval Manager sebelum DEAL.</p>}
         </div>
@@ -168,7 +182,7 @@ export function BookingForm({ open, onClose, initial, campaignId, onSaved }) {
           {f.deliverables.map((d, i) => (
             <div key={i} className="mb-2 grid grid-cols-[1fr_70px_1fr_44px] gap-2">
               <select className="input" value={d.format} onChange={(e) => set('deliverables', f.deliverables.map((x, j) => j === i ? { ...x, format: e.target.value } : x))}>
-                {['Video TikTok', 'Reels', 'Story', 'Feed', 'Live', 'YouTube Shorts', 'Bundle'].map((o) => <option key={o}>{o}</option>)}
+                {['Video TikTok', 'Reels', 'Story', 'Feed', 'Live', 'Visit', 'Mirroring', 'Visit Mirroring', 'YouTube Shorts', 'Bundle'].map((o) => <option key={o}>{o}</option>)}
               </select>
               <input className="input" inputMode="numeric" value={d.qty} onChange={(e) => set('deliverables', f.deliverables.map((x, j) => j === i ? { ...x, qty: Number(e.target.value) || 1 } : x))} />
               <input type="date" className="input" value={d.dueDate} onChange={(e) => set('deliverables', f.deliverables.map((x, j) => j === i ? { ...x, dueDate: e.target.value } : x))} />
