@@ -243,3 +243,17 @@ export function IndicatorBadge({ i }) {
   return <span title={(i.reasons || []).join(' · ')}><Badge tone={tone}>{icon}{IND_LABEL[i.status]}</Badge></span>
 }
 
+
+// Skor performa KOL = rata-rata indeks efisiensi (benchmark ÷ biaya per hasil) dari booking yang report-nya lengkap
+export function ScoreBadge({ score, n, big }) {
+  if (score === null || score === undefined) return <span className="text-xs text-ink/40" title="Belum ada booking dengan report H+7 lengkap">–</span>
+  const tone = score >= 1.2 ? 'bg-ok text-white' : score >= 1 ? 'bg-green-50 text-ok border border-green-200' : score >= 0.5 ? 'bg-amber-50 text-amber-800 border border-amber-300' : 'bg-red-50 text-brand border border-red-200'
+  const label = score >= 1.2 ? 'Sangat efisien' : score >= 1 ? 'Efisien' : score >= 0.5 ? 'Di bawah benchmark' : 'Tidak efisien'
+  const txt = score.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×'
+  return (
+    <span className="inline-flex flex-col items-end" title={`${label} · dari ${n} booking dengan report lengkap. ≥1,0× = lebih efisien dari benchmark`}>
+      <span className={`inline-flex rounded-lg px-2 py-0.5 font-extrabold num ${big ? 'text-xl' : 'text-sm'} ${tone}`}>{txt}</span>
+      <span className="mt-0.5 text-[10px] text-ink/50">{label} · {n} booking</span>
+    </span>
+  )
+}

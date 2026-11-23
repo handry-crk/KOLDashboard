@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, fileUrl } from '../api'
 import { RATE_ITEMS } from '../components/forms'
 import { useApp } from '../App'
-import { Badge, Empty, ErrorBox, Field, FileDrop, IndicatorBadge, IND_LABEL, Loading, Modal, MoneyInput, ReviewBadge, Section, StatusBadge, Table, TierBadge, Tile, useApi, useToast } from '../components/ui'
+import { Badge, Empty, ErrorBox, Field, FileDrop, IndicatorBadge, IND_LABEL, ScoreBadge, Loading, Modal, MoneyInput, ReviewBadge, Section, StatusBadge, Table, TierBadge, Tile, useApi, useToast } from '../components/ui'
 import { num, pct, rp, rpShort, short, times } from '../fmt'
 
 const NICHES = ['Kuliner', 'Lifestyle', 'Mom', 'Mahasiswa', 'Komedi', 'Review jujur', 'Lokal Bandung', 'Lokal Jabodetabek']
@@ -15,10 +15,11 @@ export default function Kols() {
   const [tier, setTier] = useState('')
   const [status, setStatus] = useState('')
   const [ind, setInd] = useState('')
+  const [sort, setSort] = useState('nama')
   const [open, setOpen] = useState(false)
   const nav = useNavigate()
-  const rows = useMemo(() => (data || []).filter((k) => (!tier || k.tier === tier) && (!status || k.status === status) && (!ind || k.indicator?.status === ind) &&
-    `${k.name} ${Object.values(k.handles || {}).join(' ')} ${k.city} ${(k.niche || []).join(' ')}`.toLowerCase().includes(q.toLowerCase())), [data, q, tier, status, ind])
+  const rows = useMemo(() => { const r = (data || []).filter((k) => (!tier || k.tier === tier) && (!status || k.status === status) && (!ind || k.indicator?.status === ind) &&
+    `${k.name} ${Object.values(k.handles || {}).join(' ')} ${k.city} ${(k.niche || []).join(' ')}`.toLowerCase().includes(q.toLowerCase())); const sc = (k) => k.stats.score ?? null; if (sort === "skor-tinggi") r.sort((a, b) => (sc(b) ?? -1) - (sc(a) ?? -1)); if (sort === "skor-rendah") r.sort((a, b) => (sc(a) ?? 99) - (sc(b) ?? 99)); return r }, [data, q, tier, status, ind, sort])
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -29,6 +30,7 @@ export default function Kols() {
         <input className="input max-w-xs" placeholder="Cari nama, handle, kota, niche…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="input w-auto" value={tier} onChange={(e) => setTier(e.target.value)}><option value="">Semua tier</option>{meta.tiers.map((t) => <option key={t}>{t}</option>)}</select>
         <select className="input w-auto" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Semua status</option>{['Aktif', 'Watchlist', 'Blacklist'].map((t) => <option key={t}>{t}</option>)}</select>
+        <select className="input w-auto" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Urutkan"><option value="nama">Urut: nama</option><option value="skor-tinggi">Skor tertinggi</option><option value="skor-rendah">Skor terendah</option></select>
         <select className="input w-auto" value={ind} onChange={(e) => setInd(e.target.value)}><option value="">Semua indikator</option>{Object.entries(IND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
       </div>
       <ErrorBox msg={error} />
@@ -37,19 +39,20 @@ export default function Kols() {
           <div className="grid gap-2 md:hidden">
             {rows.map((k) => (
               <button key={k.id} onClick={() => nav(`/kol/${k.id}`)} className="card p-3 text-left">
-                <div className="flex items-center justify-between gap-2"><span className="font-bold">{k.name}</span><span className="flex items-center gap-1"><IndicatorBadge i={k.indicator} /><TierBadge t={k.tier} /></span></div>
-                <div className="text-xs text-ink/60">@{k.handles?.tiktok || k.handles?.instagram} · {short(k.followers?.[k.primaryPlatform])} follower · {k.city}</div>
+                <div className="flex items-start justify-between gap-2"><span className="min-w-0 break-words font-bold">{k.name}</span><span className="flex shrink-0 flex-wrap items-center justify-end gap-1"><IndicatorBadge i={k.indicator} /><TierBadge t={k.tier} /></span></div>
+                <div className="break-words text-xs text-ink/60">@{k.handles?.tiktok || k.handles?.instagram} · {short(k.followers?.[k.primaryPlatform])} follower · {k.city}</div>
                 <div className="mt-1 grid grid-cols-3 gap-1 text-[11px]">
                   <div><div className="text-ink/50">Avg views</div><div className="num font-semibold">{short(k.indicator?.avgViews)}</div></div>
                   <div><div className="text-ink/50">Est CPM</div><div className="num font-semibold">{rpShort(k.indicator?.estCpm)}</div></div>
                   <div><div className="text-ink/50">PIC</div><div className="truncate font-semibold">{k.picName || '–'}</div></div>
                 </div>
+                <div className="mt-1 flex items-center justify-between text-[11px]"><span className="text-ink/50">Skor performa</span><ScoreBadge score={k.stats.score} n={k.stats.scoreN} /></div>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">{k.status !== 'Aktif' && <Badge tone={k.status === 'Blacklist' ? 'red' : 'amber'}>{k.status}</Badge>}<ReviewBadge r={k.recommendation} /><span className="text-ink/60">{k.stats.bookings} booking · CPV {rp(k.stats.avgCpv)}</span></div>
               </button>
             ))}
           </div>
           <div className="hidden md:block">
-            <Table head={['KOL', 'PIC', 'Tier', { label: 'Follower', right: 1 }, { label: 'Avg Views', right: 1 }, { label: 'Est CPM', right: 1 }, 'Indikator', { label: 'Booking · Spend', right: 1 }, { label: 'Avg CPV', right: 1 }, { label: 'Rev. DIRECT', right: 1 }, 'Rekomendasi', 'Catatan']}>
+            <Table head={['KOL', 'PIC', 'Tier', { label: 'Follower', right: 1 }, { label: 'Avg Views', right: 1 }, { label: 'Est CPM', right: 1 }, 'Indikator', { label: 'Skor performa', right: 1 }, { label: 'Booking · Spend', right: 1 }, { label: 'Avg CPV', right: 1 }, { label: 'Rev. DIRECT', right: 1 }, 'Rekomendasi', 'Catatan']}>
               {rows.map((k) => (
                 <tr key={k.id} className="cursor-pointer hover:bg-brand-soft" onClick={() => nav(`/kol/${k.id}`)}>
                   <td className="td"><div className="font-semibold">{k.name}</div><div className="text-xs text-ink/50">@{k.handles?.tiktok || k.handles?.instagram} · {k.city}</div></td>
@@ -59,6 +62,7 @@ export default function Kols() {
                   <td className="td text-right num">{short(k.indicator?.avgViews)}{k.indicator?.avgSource === 'histori' && <div className="text-[10px] text-ink/40">dari histori</div>}</td>
                   <td className="td text-right num">{rpShort(k.indicator?.estCpm)}{k.indicator?.rateName && k.indicator?.estCpm != null && <div className="text-[10px] text-ink/40">{k.indicator.rateName}</div>}</td>
                   <td className="td"><IndicatorBadge i={k.indicator} /></td>
+                  <td className="td text-right"><ScoreBadge score={k.stats.score} n={k.stats.scoreN} /></td>
                   <td className="td text-right num">{k.stats.bookings} · {rpShort(k.stats.spend)}</td>
                   <td className="td text-right num">{rp(k.stats.avgCpv)}</td>
                   <td className="td text-right num">{rpShort(k.stats.revenueDirect)}</td>
@@ -67,7 +71,7 @@ export default function Kols() {
                 </tr>
               ))}
             </Table>
-            <p className="mt-2 text-[11px] text-ink/50">Avg Views dari screenshot insight akun (atau rata-rata views konten di histori). Est CPM = rate ÷ avg views × 1.000. Indikator: views ≥ {pct(settings.kolApproval?.minViewsPctFollowers, 0)} follower dan Est CPM ≤ batas tier (atur di Pengaturan).</p>
+            <p className="mt-2 text-[11px] text-ink/50">Avg Views dari screenshot insight akun (atau rata-rata views konten di histori). Est CPM = rate ÷ avg views × 1.000. Indikator: views ≥ {pct(settings.kolApproval?.minViewsPctFollowers, 0)} follower dan Est CPM ≤ batas tier (atur di Pengaturan). Skor performa = rata-rata indeks (benchmark ÷ biaya per hasil) dari booking yang report H+7-nya lengkap: ≥ 1,2× SCALE, 0,5–1,2× KEEP, &lt; 0,5× STOP.</p>
           </div>
         </>
       )}
@@ -114,6 +118,7 @@ export function KolDetail() {
           <div><div className="label">Dasar rate</div><div className="font-semibold">{k.indicator?.rateName || '–'}</div><div className="text-[11px] text-ink/50 num">{rp(k.indicator?.rate)}</div></div>
           <div><div className="label">PIC</div><div className="font-semibold">{k.picName || '–'}</div></div>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-brand-line pt-3"><span className="label mb-0">Skor performa (setelah campaign)</span><ScoreBadge score={k.score} n={k.scoreN} big /></div>
         <ul className="mt-2 text-xs text-ink/70">{(k.indicator?.reasons || []).map((r) => <li key={r}>• {r}</li>)}</ul>
         {k.insightFiles?.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{k.insightFiles.map((f) => <a key={f} href={fileUrl(f)} target="_blank" rel="noreferrer"><img src={fileUrl(f)} alt="insight" className="h-24 w-16 rounded-lg border border-brand-line object-cover" /></a>)}</div>}
       </Section>

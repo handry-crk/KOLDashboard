@@ -322,23 +322,32 @@ def booking_metrics(b, campaign, contents, snaps_by_content, settings, kol, assi
     return m
 
 
+def booking_index(m):
+    """Indeks efisiensi satu booking = benchmark ÷ biaya per hasil aktual (≥1 = lebih efisien)."""
+    if not m.get("reportComplete"):
+        return None
+    b = m["benchmark"]
+    cfg = CATEGORIES.get(m["category"]) or {}
+    if cfg.get("outcome") != "views" and m["outcome"] == 0 and m["cost"] > 0:
+        return 0.0  # kategori dengan outcome (order/redemption/voucher/klik) tapi hasilnya nol
+    if b.get("cpo") and m["costPerOutcome"]:
+        return b["cpo"] / m["costPerOutcome"]
+    if b.get("cpv") and m["cpv"]:
+        return b["cpv"] / m["cpv"]
+    return None
+
+
+def perf_score(metrics_list):
+    """Skor performa KOL = rata-rata indeks booking yang report-nya lengkap. Return (skor, jumlah booking dinilai)."""
+    xs = [x for x in (booking_index(m) for m in metrics_list) if x is not None]
+    return ((sum(xs) / len(xs)) if xs else None), len(xs)
+
+
 def recommend(metrics_list):
-    """SCALE/KEEP/STOP dari histori booking yang report-nya lengkap."""
-    done = [m for m in metrics_list if m["reportComplete"]]
-    if not done:
+    """SCALE/KEEP/STOP dari skor performa."""
+    s, n = perf_score(metrics_list)
+    if s is None:
         return None
-    scores = []
-    for m in done:
-        b = m["benchmark"]
-        if b.get("cpo") and m["costPerOutcome"]:
-            scores.append(b["cpo"] / m["costPerOutcome"])
-        elif b.get("cpv") and m["cpv"]:
-            scores.append(b["cpv"] / m["cpv"])
-        elif m["outcome"] == 0 and m["cost"] > 0:
-            scores.append(0)
-    if not scores:
-        return None
-    s = sum(scores) / len(scores)
     return "SCALE" if s >= 1.2 else ("STOP" if s < 0.5 else "KEEP")
 
 

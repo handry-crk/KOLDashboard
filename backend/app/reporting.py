@@ -2,7 +2,7 @@
 from collections import defaultdict
 from datetime import timedelta
 from .db import db, parse_date, today, week_monday, days_since
-from .logic import (CATEGORIES, TIERS, COMMITTED, load_universe, aggregate, with_roi, safe_div, total_cost, latest_snap, committed_cost)
+from .logic import (CATEGORIES, TIERS, COMMITTED, load_universe, aggregate, with_roi, safe_div, total_cost, latest_snap, committed_cost, booking_index)
 from .services import refresh_statuses
 
 DIRECT_CATS = [c for c, v in CATEGORIES.items() if "DIRECT" in v["evidence"]]
@@ -54,14 +54,7 @@ def bench_weighted(ms, key):
 
 
 def eff_index(m):
-    b = m["benchmark"]
-    if b.get("cpo") and m["costPerOutcome"]:
-        return b["cpo"] / m["costPerOutcome"]
-    if m["outcome"] == 0 and m["cost"] and m["reportComplete"]:
-        return 0.0
-    if b.get("cpv") and m["cpv"]:
-        return b["cpv"] / m["cpv"]
-    return None
+    return booking_index(m)
 
 
 def status_color(actual_cpo, bench_cpo):

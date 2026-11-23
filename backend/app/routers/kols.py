@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from ..auth import current_user, require, EDITORS, LEADS
 from ..db import db, new_id, now_iso, audit
-from ..logic import get_settings, kol_tier, load_universe, recommend, norm_handle, TIERS, COMMITTED, kol_indicator
+from ..logic import get_settings, kol_tier, load_universe, recommend, norm_handle, TIERS, COMMITTED, kol_indicator, perf_score
 
 router = APIRouter(prefix="/api/kols")
 
@@ -115,6 +115,7 @@ async def list_kols(user=Depends(current_user)):
             "avgEr": (sum(m["engagement"] for m in ms) / sum(m["views"] for m in ms)) if sum(m["views"] for m in ms) else None,
             "revenueDirect": sum(m["revenueDirect"] for m in ms), "lateReports": late,
             "flags": sorted({f["label"] for m in ms for f in m["flags"]}),
+            "score": perf_score(ms)[0], "scoreN": perf_score(ms)[1],
         }
         v["recommendation"] = k.get("recommendationOverride") or recommend(ms)
         out.append(v)
@@ -143,6 +144,7 @@ async def get_kol(kid: str, user=Depends(current_user)):
     v["history"] = sorted(hist, key=lambda h: h["booking"].get("createdAt", ""), reverse=True)
     v["recommendation"] = k.get("recommendationOverride") or recommend(ms)
     v["recommendationAuto"] = recommend(ms)
+    v["score"], v["scoreN"] = perf_score(ms)
     return v
 
 
