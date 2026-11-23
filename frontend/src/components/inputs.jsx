@@ -30,7 +30,7 @@ export function ContentForm({ open, onClose, booking, onSaved }) {
         <Field label="Link post (paste)" hint="Platform & handle terbaca otomatis dari link"><input className="input" inputMode="url" value={f.url} onChange={(e) => setF({ ...f, url: e.target.value })} placeholder="https://www.tiktok.com/@handle/video/…" autoFocus /></Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Tanggal tayang"><input type="date" className="input" max={todayISO()} value={f.postedAt} onChange={(e) => setF({ ...f, postedAt: e.target.value })} /></Field>
-          <Field label="Format"><select className="input" value={f.format} onChange={(e) => setF({ ...f, format: e.target.value })}>{['Video', 'Reels', 'Story', 'Feed', 'Live', 'Shorts'].map((x) => <option key={x}>{x}</option>)}</select></Field>
+          <Field label="Format"><select className="input" value={f.format} onChange={(e) => setF({ ...f, format: e.target.value })}>{['Video', 'Reels', 'IG Carousel', 'Story', 'Feed', 'Live', 'Shorts'].map((x) => <option key={x}>{x}</option>)}</select></Field>
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-5 w-5" checked={f.adsBoosted} onChange={(e) => setF({ ...f, adsBoosted: e.target.checked })} /> Di-boost ads (biaya ikut dihitung)</label>
         {f.adsBoosted && <Field label="Biaya boost (Rp)"><input className="input" inputMode="numeric" value={f.boostCostRp || ''} onChange={(e) => setF({ ...f, boostCostRp: Number(e.target.value.replace(/\D/g, '')) })} /></Field>}

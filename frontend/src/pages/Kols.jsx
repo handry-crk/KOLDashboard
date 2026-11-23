@@ -1,23 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api } from '../api'
+import { api, fileUrl } from '../api'
 import { RATE_ITEMS } from '../components/forms'
 import { useApp } from '../App'
-import { Badge, Empty, ErrorBox, Field, Loading, Modal, MoneyInput, ReviewBadge, Section, StatusBadge, Table, TierBadge, Tile, useApi, useToast } from '../components/ui'
+import { Badge, Empty, ErrorBox, Field, FileDrop, IndicatorBadge, IND_LABEL, Loading, Modal, MoneyInput, ReviewBadge, Section, StatusBadge, Table, TierBadge, Tile, useApi, useToast } from '../components/ui'
 import { num, pct, rp, rpShort, short, times } from '../fmt'
 
 const NICHES = ['Kuliner', 'Lifestyle', 'Mom', 'Mahasiswa', 'Komedi', 'Review jujur', 'Lokal Bandung', 'Lokal Jabodetabek']
 
 export default function Kols() {
-  const { meta, can } = useApp()
+  const { meta, can, settings } = useApp()
   const { data, error, loading, reload } = useApi('/api/kols')
   const [q, setQ] = useState('')
   const [tier, setTier] = useState('')
   const [status, setStatus] = useState('')
+  const [ind, setInd] = useState('')
   const [open, setOpen] = useState(false)
   const nav = useNavigate()
-  const rows = useMemo(() => (data || []).filter((k) => (!tier || k.tier === tier) && (!status || k.status === status) &&
-    `${k.name} ${Object.values(k.handles || {}).join(' ')} ${k.city} ${(k.niche || []).join(' ')}`.toLowerCase().includes(q.toLowerCase())), [data, q, tier, status])
+  const rows = useMemo(() => (data || []).filter((k) => (!tier || k.tier === tier) && (!status || k.status === status) && (!ind || k.indicator?.status === ind) &&
+    `${k.name} ${Object.values(k.handles || {}).join(' ')} ${k.city} ${(k.niche || []).join(' ')}`.toLowerCase().includes(q.toLowerCase())), [data, q, tier, status, ind])
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -28,6 +29,7 @@ export default function Kols() {
         <input className="input max-w-xs" placeholder="Cari nama, handle, kota, niche…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="input w-auto" value={tier} onChange={(e) => setTier(e.target.value)}><option value="">Semua tier</option>{meta.tiers.map((t) => <option key={t}>{t}</option>)}</select>
         <select className="input w-auto" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Semua status</option>{['Aktif', 'Watchlist', 'Blacklist'].map((t) => <option key={t}>{t}</option>)}</select>
+        <select className="input w-auto" value={ind} onChange={(e) => setInd(e.target.value)}><option value="">Semua indikator</option>{Object.entries(IND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
       </div>
       <ErrorBox msg={error} />
       {loading && !data ? <Loading /> : !rows.length ? <Empty>Tidak ada KOL yang cocok.</Empty> : (
@@ -35,28 +37,37 @@ export default function Kols() {
           <div className="grid gap-2 md:hidden">
             {rows.map((k) => (
               <button key={k.id} onClick={() => nav(`/kol/${k.id}`)} className="card p-3 text-left">
-                <div className="flex items-center justify-between"><span className="font-bold">{k.name}</span><TierBadge t={k.tier} /></div>
-                <div className="text-xs text-ink/60">@{k.handles?.tiktok} · {short(k.followers?.[k.primaryPlatform])} · {k.city}</div>
+                <div className="flex items-center justify-between gap-2"><span className="font-bold">{k.name}</span><span className="flex items-center gap-1"><IndicatorBadge i={k.indicator} /><TierBadge t={k.tier} /></span></div>
+                <div className="text-xs text-ink/60">@{k.handles?.tiktok || k.handles?.instagram} · {short(k.followers?.[k.primaryPlatform])} follower · {k.city}</div>
+                <div className="mt-1 grid grid-cols-3 gap-1 text-[11px]">
+                  <div><div className="text-ink/50">Avg views</div><div className="num font-semibold">{short(k.indicator?.avgViews)}</div></div>
+                  <div><div className="text-ink/50">Est CPM</div><div className="num font-semibold">{rpShort(k.indicator?.estCpm)}</div></div>
+                  <div><div className="text-ink/50">PIC</div><div className="truncate font-semibold">{k.picName || '–'}</div></div>
+                </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">{k.status !== 'Aktif' && <Badge tone={k.status === 'Blacklist' ? 'red' : 'amber'}>{k.status}</Badge>}<ReviewBadge r={k.recommendation} /><span className="text-ink/60">{k.stats.bookings} booking · CPV {rp(k.stats.avgCpv)}</span></div>
               </button>
             ))}
           </div>
           <div className="hidden md:block">
-            <Table head={['KOL', 'Tier', { label: 'Follower', right: 1 }, 'Kota / niche', { label: 'Booking', right: 1 }, { label: 'Spend', right: 1 }, { label: 'Avg CPV', right: 1 }, { label: 'Avg ER', right: 1 }, { label: 'Rev. DIRECT', right: 1 }, 'Rekomendasi', 'Catatan']}>
+            <Table head={['KOL', 'PIC', 'Tier', { label: 'Follower', right: 1 }, { label: 'Avg Views', right: 1 }, { label: 'Est CPM', right: 1 }, 'Indikator', { label: 'Booking · Spend', right: 1 }, { label: 'Avg CPV', right: 1 }, { label: 'Rev. DIRECT', right: 1 }, 'Rekomendasi', 'Catatan']}>
               {rows.map((k) => (
                 <tr key={k.id} className="cursor-pointer hover:bg-brand-soft" onClick={() => nav(`/kol/${k.id}`)}>
-                  <td className="td"><div className="font-semibold">{k.name}</div><div className="text-xs text-ink/50">@{k.handles?.tiktok || k.handles?.instagram}</div></td>
+                  <td className="td"><div className="font-semibold">{k.name}</div><div className="text-xs text-ink/50">@{k.handles?.tiktok || k.handles?.instagram} · {k.city}</div></td>
+                  <td className="td text-xs">{k.picName || '–'}</td>
                   <td className="td"><TierBadge t={k.tier} />{k.tierOverride && <span className="ml-1 text-[10px] text-ink/50">override</span>}</td>
                   <td className="td text-right num">{short(k.followers?.[k.primaryPlatform])}</td>
-                  <td className="td text-xs">{k.city}<div className="text-ink/50">{(k.niche || []).join(', ')}</div></td>
-                  <td className="td text-right num">{k.stats.bookings}</td><td className="td text-right num">{rpShort(k.stats.spend)}</td>
-                  <td className="td text-right num">{rp(k.stats.avgCpv)}</td><td className="td text-right num">{pct(k.stats.avgEr)}</td>
+                  <td className="td text-right num">{short(k.indicator?.avgViews)}{k.indicator?.avgSource === 'histori' && <div className="text-[10px] text-ink/40">dari histori</div>}</td>
+                  <td className="td text-right num">{rpShort(k.indicator?.estCpm)}{k.indicator?.rateName && k.indicator?.estCpm != null && <div className="text-[10px] text-ink/40">{k.indicator.rateName}</div>}</td>
+                  <td className="td"><IndicatorBadge i={k.indicator} /></td>
+                  <td className="td text-right num">{k.stats.bookings} · {rpShort(k.stats.spend)}</td>
+                  <td className="td text-right num">{rp(k.stats.avgCpv)}</td>
                   <td className="td text-right num">{rpShort(k.stats.revenueDirect)}</td>
                   <td className="td">{k.status === 'Blacklist' ? <Badge tone="red">Blacklist</Badge> : <ReviewBadge r={k.recommendation} />}</td>
                   <td className="td text-xs text-amber-700">{[k.stats.lateReports ? `${k.stats.lateReports} report telat` : '', ...k.stats.flags.filter((f) => !f.startsWith('Report')).slice(0, 2)].filter(Boolean).join(' · ')}</td>
                 </tr>
               ))}
             </Table>
+            <p className="mt-2 text-[11px] text-ink/50">Avg Views dari screenshot insight akun (atau rata-rata views konten di histori). Est CPM = rate ÷ avg views × 1.000. Indikator: views ≥ {pct(settings.kolApproval?.minViewsPctFollowers, 0)} follower dan Est CPM ≤ batas tier (atur di Pengaturan).</p>
           </div>
         </>
       )}
@@ -95,6 +106,17 @@ export function KolDetail() {
             {can('Manager', 'KOL TL', 'KOL Officer') && <button className="btn-ghost" onClick={() => setEdit(true)}>Edit</button>}</div>
         </div>
       </div>
+      <Section title={<span className="flex items-center gap-2">Insight & indikator <IndicatorBadge i={k.indicator} /></span>}>
+        <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-5">
+          <div><div className="label">Avg views</div><div className="text-lg font-extrabold num">{short(k.indicator?.avgViews)}</div><div className="text-[11px] text-ink/50">{k.indicator?.avgSource === 'insight' ? 'dari insight akun' : k.indicator?.avgSource === 'histori' ? 'rata-rata histori konten' : 'belum diisi'}</div></div>
+          <div><div className="label">% dari follower</div><div className="text-lg font-extrabold num">{pct(k.indicator?.viewsPct)}</div><div className="text-[11px] text-ink/50">min. {pct(k.indicator?.minViewsPct, 0)}</div></div>
+          <div><div className="label">Est CPM</div><div className="text-lg font-extrabold num">{rp(k.indicator?.estCpm)}</div><div className="text-[11px] text-ink/50">maks. {rp(k.indicator?.maxCpm)} ({k.tier})</div></div>
+          <div><div className="label">Dasar rate</div><div className="font-semibold">{k.indicator?.rateName || '–'}</div><div className="text-[11px] text-ink/50 num">{rp(k.indicator?.rate)}</div></div>
+          <div><div className="label">PIC</div><div className="font-semibold">{k.picName || '–'}</div></div>
+        </div>
+        <ul className="mt-2 text-xs text-ink/70">{(k.indicator?.reasons || []).map((r) => <li key={r}>• {r}</li>)}</ul>
+        {k.insightFiles?.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{k.insightFiles.map((f) => <a key={f} href={fileUrl(f)} target="_blank" rel="noreferrer"><img src={fileUrl(f)} alt="insight" className="h-24 w-16 rounded-lg border border-brand-line object-cover" /></a>)}</div>}
+      </Section>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <Tile label="Booking" icon="🤝" raw={live.length} format={num} />
         <Tile label="Total spend" icon="💰" raw={spend} format={rpShort} />
@@ -132,6 +154,8 @@ export function KolDetail() {
 
 export function KolForm({ open, onClose, initial, onSaved }) {
   const { can } = useApp()
+  const [pics, setPics] = useState([])
+  useEffect(() => { if (open) api('/api/users/pic').then(setPics).catch(() => {}) }, [open])
   const toast = useToast()
   const [f, setF] = useState(null)
   const [err, setErr] = useState('')
@@ -146,7 +170,7 @@ export function KolForm({ open, onClose, initial, onSaved }) {
   const save = async () => {
     setBusy(true); setErr('')
     const body = { ...f }
-    ;['id', 'tier', 'stats', 'history', 'recommendation', 'recommendationAuto', 'createdAt', 'createdBy'].forEach((k) => delete body[k])
+    ;['id', 'tier', 'stats', 'history', 'recommendation', 'recommendationAuto', 'createdAt', 'createdBy', 'indicator', 'picName'].forEach((k) => delete body[k])
     body.handles = Object.fromEntries(Object.entries(body.handles || {}).map(([p, h]) => [p, (h || '').replace(/^@/, '').trim()]))
     try {
       const r = initial ? await api(`/api/kols/${initial.id}`, { method: 'PUT', body }) : await api('/api/kols', { method: 'POST', body })
@@ -165,6 +189,16 @@ export function KolForm({ open, onClose, initial, onSaved }) {
             <Field label="Follower"><input className="input num" inputMode="numeric" value={f.followers?.[p] || ''} onChange={(e) => set('followers', { ...f.followers, [p]: Number(e.target.value.replace(/\D/g, '')) })} /></Field>
           </div>
         ))}
+        <div className="sm:col-span-3 grid gap-2 rounded-2xl border border-brand-line p-3 sm:grid-cols-3">
+          <div className="sm:col-span-3 text-sm font-bold">Insight views (dasar indikator approval)</div>
+          <Field label="Avg views per konten (30 hari)" hint="Dari screenshot insight akun KOL"><input className="input num" inputMode="numeric" value={f.avgViews30D ? new Intl.NumberFormat('id-ID').format(f.avgViews30D) : ''} onChange={(e) => set('avgViews30D', Number(e.target.value.replace(/\D/g, '')) || null)} placeholder="0" /></Field>
+          <Field label="Screenshot insight akun" className="sm:col-span-2"><FileDrop files={f.insightFiles || []} onChange={(v) => set('insightFiles', v)} label="Foto" /></Field>
+        </div>
+        <Field label="PIC KOL" hint="Penanggung jawab dari listing sampai lock (DEAL)">
+          <select className="input" value={f.picOfficerId || ''} onChange={(e) => set('picOfficerId', e.target.value || null)}>
+            <option value="">{initial ? 'Pilih PIC…' : 'Saya (otomatis)'}</option>{pics.map((u) => <option key={u.id} value={u.id}>{u.name} · {u.role === 'KOL TL' ? 'KOL Team Leader' : u.role}</option>)}
+          </select>
+        </Field>
         <Field label="Kota domisili"><input className="input" value={f.city} onChange={(e) => set('city', e.target.value)} /></Field>
         <Field label="Kontak WA"><input className="input" inputMode="tel" value={f.contactWa || ''} onChange={(e) => set('contactWa', e.target.value)} /></Field>
         <Field label="Agency / manager"><input className="input" value={f.agency || ''} onChange={(e) => set('agency', e.target.value)} /></Field>

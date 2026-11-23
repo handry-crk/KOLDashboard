@@ -103,6 +103,13 @@ class ApproveIn(BaseModel):
     reason: str = ""
 
 
+@router.get("/users/pic")
+async def pic_users(user=Depends(current_user)):
+    """Daftar user yang bisa jadi PIC KOL/booking (untuk dropdown)."""
+    return await db.users.find({"active": True, "role": {"$in": ["KOL Officer", "KOL TL", "Manager"]}},
+                               {"_id": 0, "id": 1, "name": 1, "role": 1}).sort("name").to_list(None)
+
+
 @router.get("/users/pending")
 async def pending_users(user=Depends(require("Manager"))):
     return await db.users.find({"status": "pending"}, {"_id": 0, "pinHash": 0}).sort("registeredAt", 1).to_list(None)
@@ -219,6 +226,13 @@ def validate_settings(s):
         raise HTTPException(400, "Batas follower tier harus naik: Nano < Micro < Macro < Mega")
     if not isinstance(s.get("benchmarks"), dict):
         raise HTTPException(400, "Benchmark tidak valid")
+    ka = s.get("kolApproval") or {}
+    mv = ka.get("minViewsPctFollowers")
+    if not isinstance(mv, (int, float)) or not 0 <= mv <= 1:
+        raise HTTPException(400, "Indikator: % views minimal harus 0–100%")
+    for t, v in (ka.get("maxCpm") or {}).items():
+        if not isinstance(v, (int, float)) or v < 0:
+            raise HTTPException(400, f"Indikator: CPM maksimal {t} tidak valid")
 
 
 @router.put("/settings")

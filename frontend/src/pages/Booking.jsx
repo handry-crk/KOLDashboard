@@ -46,8 +46,13 @@ export default function BookingPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2"><Link to={`/kol/${b.kol.id}`} className="text-xl font-extrabold hover:text-brand">{b.kol.name}</Link><TierBadge t={b.tierAtBooking} /><StatusBadge s={b.status} /></div>
-            <div className="mt-1 text-sm text-ink/60">@{b.kol.handles?.[b.platform] || b.kol.handles?.tiktok} · {b.platform} · {b.campaign.category} · <GateBadge g={b.campaign.gateStatus} /></div>
+            <div className="mt-1 text-sm text-ink/60">@{b.kol.handles?.[b.platform] || b.kol.handles?.tiktok} · {{ tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube', mirroring: 'Mirroring (multi-platform)' }[b.platform] || b.platform} · {b.campaign.category} · <GateBadge g={b.campaign.gateStatus} /></div>
             <div className="mt-2 flex flex-wrap gap-2 text-sm"><Badge tone="grey">Kode: <b className="ml-1">{b.uniqueCode}</b></Badge>{b.trackingLink && <a className="text-brand underline" href={b.trackingLink} target="_blank" rel="noreferrer">Link tracking</a>}</div>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink/70">
+              <span>PIC: <b>{b.picName || '–'}</b></span>
+              <span>Listing: {b.lockInfo?.listedBy || '–'} · {dateTime(b.lockInfo?.listedAt)}</span>
+              <span>Lock (DEAL): {b.lockInfo?.lockedBy ? `${b.lockInfo.lockedBy} · ${dateTime(b.lockInfo.lockedAt)}` : 'belum'}</span>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {editor && !['PAID', 'CANCELLED'].includes(b.status) && next.map(([to, label]) => <button key={to} className="btn-primary" disabled={to === 'REPORT_SUBMITTED' && !m.reportComplete} title={to === 'REPORT_SUBMITTED' && !m.reportComplete ? 'Lengkapi snapshot H+7 dulu' : ''} onClick={() => go(to).catch(() => {})}>{label}</button>)}
@@ -113,8 +118,9 @@ export default function BookingPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Section title="Biaya & deliverables">
           <dl className="grid grid-cols-2 gap-y-1 text-sm">
-            {[['Fee', b.costs.feeRp], ['Produk', b.costs.productRp], ['Transport', b.costs.transportRp], ['Lainnya', b.costs.otherRp]].map(([k, v]) => <Fragment key={k}><dt className="text-ink/60">{k}</dt><dd className="text-right num">{rp(v || 0)}</dd></Fragment>)}
+            {[['Fee', b.costs.feeRp], ['Nilai produk', b.costs.productRp], ['Transport', b.costs.transportRp], ['Lainnya', b.costs.otherRp]].map(([k, v]) => <Fragment key={k}><dt className="text-ink/60">{k}</dt><dd className="text-right num">{rp(v || 0)}</dd></Fragment>)}
             {b.costs.commissionPct ? <><dt className="text-ink/60">Komisi</dt><dd className="text-right">{b.costs.commissionPct}% (dari report)</dd></> : null}
+            {b.productItems && <><dt className="col-span-2 mt-1 text-ink/60">Produk untuk KOL</dt><dd className="col-span-2 whitespace-pre-line text-sm">{b.productItems}</dd></>}
             <dt className="font-bold">Total kontrak</dt><dd className="text-right font-bold num">{rp(b.totalCostRp)}</dd>
           </dl>
           <div className="mt-3 space-y-1 text-sm">{b.deliverables.map((d, i) => <div key={i} className="flex justify-between"><span>{d.qty}× {d.format}</span><span className="text-ink/60">due {date(d.dueDate)}</span></div>)}</div>

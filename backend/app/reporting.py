@@ -347,7 +347,7 @@ async def tasks(user):
     for b in u["bookings"]:
         if b["status"] in ("CANCELLED", "PAID"):
             continue
-        mine = role != "KOL Officer" or b.get("createdById") == user["id"]
+        mine = role != "KOL Officer" or (b.get("picId") or b.get("createdById")) == user["id"]
         k = u["kols"].get(b["kolId"], {})
         c = u["campaigns"][b["campaignId"]]
         base = {"bookingId": b["id"], "kol": k.get("name"), "campaign": c["name"], "category": c["category"]}

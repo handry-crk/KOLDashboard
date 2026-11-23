@@ -234,3 +234,12 @@ export function Table({ head, children, className = '' }) {
     </div>
   )
 }
+
+export const IND_LABEL = { approved: 'Approved', review: 'Perlu review', rejected: 'Tidak approved', nodata: 'Belum ada data' }
+export function IndicatorBadge({ i }) {
+  if (!i) return null
+  const tone = { approved: 'greenSolid', review: 'amber', rejected: 'red', nodata: 'grey' }[i.status]
+  const icon = { approved: '✓ ', review: '! ', rejected: '✗ ', nodata: '' }[i.status]
+  return <span title={(i.reasons || []).join(' · ')}><Badge tone={tone}>{icon}{IND_LABEL[i.status]}</Badge></span>
+}
+

@@ -39,6 +39,12 @@ CATEGORIES = {
         "revenue": "gmvRp", "evidence": ["DIRECT"], "assisted": False, "windowDays": 0,
         "objective": "Jualan langsung via TikTok Shop affiliate",
     },
+    "Media": {
+        "code": "MD", "fields": ["views", "reach"] + ENG + ["profileVisits"],
+        "outcome": "views", "outcomeLabel": "Views",
+        "revenue": None, "evidence": ["EXPOSURE"], "assisted": False, "windowDays": 0,
+        "objective": "Publikasi & awareness lewat akun media/info kota",
+    },
     "TikTok GO": {
         "code": "TG", "fields": ["views"] + ENG + ["vouchersSold", "vouchersRedeemed", "gmvRp"],
         "outcome": "vouchersRedeemed", "outcomeLabel": "Voucher TikTok GO ditukar",
@@ -80,8 +86,12 @@ DEFAULT_SETTINGS = {
         "NPL": {"Nano": {"cpv": 70, "er": 0.06, "cpo": 70}, "Micro": {"cpv": 60, "er": 0.05, "cpo": 60}, "Macro": {"cpv": 50, "er": 0.04, "cpo": 50}, "Mega": {"cpv": 40, "er": 0.03, "cpo": 40}},
         "Info Lokasi": {"Nano": {"cpv": 70, "er": 0.06, "cpo": 4000}, "Micro": {"cpv": 60, "er": 0.05, "cpo": 4000}, "Macro": {"cpv": 50, "er": 0.04, "cpo": 5000}, "Mega": {"cpv": 40, "er": 0.03, "cpo": 6000}},
         "Keranjang Kuning": {"Nano": {"cpv": 70, "er": 0.06, "cpo": 25000, "roas": 3.0}, "Micro": {"cpv": 60, "er": 0.05, "cpo": 25000, "roas": 3.0}, "Macro": {"cpv": 50, "er": 0.04, "cpo": 30000, "roas": 2.5}, "Mega": {"cpv": 40, "er": 0.03, "cpo": 40000, "roas": 2.0}},
+        "Media": {"Nano": {"cpv": 70, "er": 0.05, "cpo": 70}, "Micro": {"cpv": 60, "er": 0.04, "cpo": 60}, "Macro": {"cpv": 50, "er": 0.03, "cpo": 50}, "Mega": {"cpv": 40, "er": 0.025, "cpo": 40}},
         "TikTok GO": {"Nano": {"cpv": 70, "er": 0.06, "cpo": 20000, "roas": 2.5}, "Micro": {"cpv": 60, "er": 0.05, "cpo": 20000, "roas": 2.5}, "Macro": {"cpv": 50, "er": 0.04, "cpo": 25000, "roas": 2.0}, "Mega": {"cpv": 40, "er": 0.03, "cpo": 30000, "roas": 1.8}},
     },
+    # Indikator approval KOL dari data insight views (*angka ilustrasi, ubah di Pengaturan)
+    "kolApproval": {"minViewsPctFollowers": 0.03,
+                    "maxCpm": {"Nano": 70000, "Micro": 60000, "Macro": 50000, "Mega": 40000}},
     "appName": "KOL Ledger",
     "adminEmail": "",
     "digestRecipients": "",
@@ -94,6 +104,14 @@ async def get_settings():
         await db.settings.insert_one(dict(DEFAULT_SETTINGS))
         return dict(DEFAULT_SETTINGS)
     merged = {**DEFAULT_SETTINGS, **s}
+    # gabung dalam: kategori/tier baru tetap punya default walau settings lama sudah tersimpan
+    bm = {k: dict(v) for k, v in DEFAULT_SETTINGS["benchmarks"].items()}
+    for cat, tiers in (s.get("benchmarks") or {}).items():
+        bm[cat] = {**bm.get(cat, {}), **tiers}
+    merged["benchmarks"] = bm
+    ka = DEFAULT_SETTINGS["kolApproval"]
+    sa = s.get("kolApproval") or {}
+    merged["kolApproval"] = {**ka, **sa, "maxCpm": {**ka["maxCpm"], **(sa.get("maxCpm") or {})}}
     return merged
 
 
@@ -424,3 +442,47 @@ def with_roi(a, gm):
     a["roiDirect"] = safe_div(a["revenueDirect"] * gm, a["cost"])
     a["roiTotal"] = safe_div((a["revenueDirect"] + a["revenueAssisted"]) * gm, a["cost"])
     return a
+
+
+RATE_PRIORITY = ["Video TikTok", "Reels", "Visit", "Visit Mirroring", "Mirroring", "Story", "Live"]
+
+
+def kol_indicator(kol, tier, settings, hist_avg=None):
+    """Approved / Perlu review / Tidak approved dari data insight views.
+    Avg views = input dari insight akun (avgViews30D), bila kosong pakai rata-rata views konten di histori booking."""
+    rc = kol.get("rateCard") or {}
+    rate_name = next((r for r in RATE_PRIORITY if rc.get(r)), None) or next((k for k, v in rc.items() if v), None)
+    rate = int(rc.get(rate_name) or 0) if rate_name else 0
+    avg_in = kol.get("avgViews30D")
+    avg = avg_in if avg_in else hist_avg
+    src = "insight" if avg_in else ("histori" if hist_avg else None)
+    fl = (kol.get("followers") or {}).get(kol.get("primaryPlatform") or "tiktok", 0) or 0
+    cfg = settings["kolApproval"]
+    out = {"avgViews": avg, "avgSource": src, "rateName": rate_name, "rate": rate or None,
+           "estCpm": (rate / avg * 1000) if (rate and avg) else None, "viewsPct": (avg / fl) if (avg and fl) else None,
+           "maxCpm": cfg["maxCpm"].get(tier), "minViewsPct": cfg["minViewsPctFollowers"]}
+    if not avg:
+        out.update(status="nodata", label="Belum ada data views", reasons=["Isi avg views dari screenshot insight akun"])
+        return out
+    reasons, checks = [], []
+    if out["viewsPct"] is not None:
+        ok = out["viewsPct"] >= cfg["minViewsPctFollowers"]
+        checks.append(ok)
+        reasons.append((f"Avg views {out['viewsPct']*100:.1f}% dari follower" + ("" if ok else f" (min. {cfg['minViewsPctFollowers']*100:.0f}%)")).replace(".", ","))
+    if out["estCpm"] is not None and out["maxCpm"]:
+        ok = out["estCpm"] <= out["maxCpm"]
+        checks.append(ok)
+        reasons.append(f"Est CPM {'dalam' if ok else 'di atas'} batas tier {tier}")
+    elif not rate:
+        reasons.append("Rate card belum diisi, CPM belum bisa dihitung")
+    fails = checks.count(False)
+    if not checks:
+        status = "review"
+    elif fails == 0:
+        status = "approved"
+    elif fails == len(checks):
+        status = "rejected"
+    else:
+        status = "review"
+    out.update(status=status, label={"approved": "Approved", "review": "Perlu review", "rejected": "Tidak approved"}[status], reasons=reasons)
+    return out

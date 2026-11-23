@@ -20,6 +20,8 @@ class BookingIn(BaseModel):
     trackingLink: str = ""
     uniqueCode: str = ""
     contentRights: dict = {}        # {repostDays, adsUsage}
+    productItems: str = ""          # produk untuk KOL: nama & jumlah (teks bebas)
+    picId: str | None = None        # PIC booking: dari listing s/d lock (DEAL) & report
     notes: str = ""
 
 
@@ -134,10 +136,11 @@ async def do_transition(b, to, user, reason=""):
     return {**b, **upd}
 
 
-def enrich(b, u):
+def enrich(b, u, names=None):
     k = u["kols"].get(b["kolId"], {})
     c = u["campaigns"].get(b["campaignId"], {})
-    return {**b, "totalCostRp": total_cost(b.get("costs")),
+    pic = b.get("picId") or b.get("createdById")
+    return {**b, "totalCostRp": total_cost(b.get("costs")), "picId": pic, "picName": (names or {}).get(pic, b.get("createdBy")),
             "kol": {"id": k.get("id"), "name": k.get("name"), "handles": k.get("handles"), "followers": k.get("followers")},
             "campaign": {"id": c.get("id"), "name": c.get("name"), "category": c.get("category"), "month": c.get("month"), "code": c.get("code"), "gateStatus": c.get("gateStatus")},
             "metrics": u["metrics"].get(b["id"])}
@@ -154,9 +157,10 @@ async def list_bookings(campaignId: str | None = None, month: str | None = None,
     if status:
         bq["status"] = status
     if officer:
-        bq["createdById"] = officer
+        bq["$or"] = [{"picId": officer}, {"picId": None, "createdById": officer}, {"picId": {"$exists": False}, "createdById": officer}]
     u = await load_universe(campaign_query=cq, booking_query=bq or None)
-    out = [enrich(b, u) for b in u["bookings"]]
+    names = {x["id"]: x["name"] async for x in db.users.find({}, {"_id": 0, "id": 1, "name": 1})}
+    out = [enrich(b, u, names) for b in u["bookings"]]
     out.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
     return out
 
@@ -168,7 +172,12 @@ async def get_booking(bid: str, user=Depends(current_user)):
         raise HTTPException(404, "Booking tidak ditemukan")
     u = await load_universe(booking_query={"id": bid})
     settings = u["settings"]
-    out = enrich(u["bookings"][0], u)
+    names = {x["id"]: x["name"] async for x in db.users.find({}, {"_id": 0, "id": 1, "name": 1})}
+    out = enrich(u["bookings"][0], u, names)
+    deal = next((h for h in (b.get("history") or []) if h.get("to") == "DEAL"), None)
+    listing = next(iter(b.get("history") or []), None)
+    out["lockInfo"] = {"listedBy": (listing or {}).get("by") or b.get("createdBy"), "listedAt": b.get("createdAt"),
+                       "lockedBy": (deal or {}).get("by"), "lockedAt": (deal or {}).get("at") or b.get("dealAt")}
     c = u["campaigns"][b["campaignId"]]
     cts = []
     for ct in u["contents_by_booking"].get(bid, []):
@@ -196,9 +205,17 @@ async def build_doc(body: BookingIn, user, existing=None):
     if kol.get("status") == "Blacklist" and not existing:
         raise HTTPException(400, f"KOL {kol['name']} masuk Blacklist: {kol.get('blacklistReason', '')}")
     doc = body.model_dump()
+    doc["productItems"] = (doc.get("productItems") or "").strip()[:500]
+    if body.platform not in ("tiktok", "instagram", "youtube", "mirroring"):
+        raise HTTPException(400, "Platform tidak dikenal")
+    if not doc.get("picId"):
+        doc["picId"] = (existing or {}).get("picId") or kol.get("picOfficerId") or user["id"]
+    if not await db.users.find_one({"id": doc["picId"], "active": True, "role": {"$in": ["KOL Officer", "KOL TL", "Manager"]}}):
+        raise HTTPException(400, "PIC harus user aktif KOL Officer / KOL Team Leader / Manager")
     doc["tierAtBooking"] = existing.get("tierAtBooking") if existing and existing.get("dealAt") else kol_tier(kol, settings)
     if not doc["uniqueCode"]:
-        h = norm_handle((kol.get("handles") or {}).get(body.platform) or kol["name"]).upper().replace(".", "").replace("_", "")[:12]
+        hs = kol.get("handles") or {}
+        h = norm_handle(hs.get(body.platform) or hs.get(kol.get("primaryPlatform") or "tiktok") or next((x for x in hs.values() if x), None) or kol["name"]).upper().replace(".", "").replace("_", "").replace(" ", "")[:12]
         doc["uniqueCode"] = f"{CATEGORIES[campaign['category']]['code']}-{h}"
     cost = total_cost(doc["costs"])
     committed = 0

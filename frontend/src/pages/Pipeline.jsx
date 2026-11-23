@@ -16,12 +16,13 @@ export default function Pipeline() {
   const [open, setOpen] = useState(false)
   const { data, error, loading, reload } = useApi(`/api/bookings?month=${month}`)
   const nav = useNavigate()
-  const rows = useMemo(() => (data || []).filter((b) => (!cat || b.campaign.category === cat) && (!tier || b.tierAtBooking === tier) && (!mine || b.createdById === user.id) && (!overdue || b.metrics.flags.some((f) => f.level === 'red'))), [data, cat, tier, mine, overdue, user.id])
+  const rows = useMemo(() => (data || []).filter((b) => (!cat || b.campaign.category === cat) && (!tier || b.tierAtBooking === tier) && (!mine || (b.picId || b.createdById) === user.id) && (!overdue || b.metrics.flags.some((f) => f.level === 'red'))), [data, cat, tier, mine, overdue, user.id])
   const cols = meta.statuses
   const card = (b) => (
     <button key={b.id} onClick={() => nav(`/booking/${b.id}`)} className={`lift w-full rounded-xl border bg-white p-2.5 text-left hover:border-brand ${b.metrics.flags.some((f) => f.level === 'red') ? 'border-brand' : 'border-brand-line'}`}>
       <div className="flex items-center justify-between gap-1"><span className="text-sm font-bold leading-tight">{b.kol.name}</span><TierBadge t={b.tierAtBooking} /></div>
       <div className="mt-0.5 text-[11px] text-ink/60">{b.campaign.category} · {b.campaign.name}</div>
+      {b.picName && <div className="mt-0.5 text-[11px] text-ink/50">PIC {b.picName}</div>}
       <div className="mt-1 flex items-center justify-between text-xs"><span className="num font-semibold">{rpShort(b.totalCostRp)}</span>{b.metrics.views > 0 && <span className="num text-ink/60">{short(b.metrics.views)} views</span>}</div>
       {b.deliverables?.[0]?.dueDate && !b.metrics.contents && <div className="text-[11px] text-ink/50">due {date(b.deliverables[0].dueDate)}</div>}
       {b.metrics.flags.map((f) => <div key={f.code} className={`mt-1 text-[11px] font-semibold ${f.level === 'red' ? 'text-brand' : 'text-amber-700'}`}>⚠ {f.label}</div>)}
@@ -37,7 +38,7 @@ export default function Pipeline() {
         <MonthPicker value={month} onChange={setMonth} />
         <select className="input w-auto" value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Semua kategori</option>{Object.keys(meta.categories).map((c) => <option key={c}>{c}</option>)}</select>
         <select className="input w-auto" value={tier} onChange={(e) => setTier(e.target.value)}><option value="">Semua tier</option>{meta.tiers.map((t) => <option key={t}>{t}</option>)}</select>
-        <label className="flex items-center gap-2 rounded-xl border border-brand-line px-3 min-h-[44px] text-sm"><input type="checkbox" className="h-4 w-4" checked={mine} onChange={(e) => setMine(e.target.checked)} />Booking saya</label>
+        <label className="flex items-center gap-2 rounded-xl border border-brand-line px-3 min-h-[44px] text-sm"><input type="checkbox" className="h-4 w-4" checked={mine} onChange={(e) => setMine(e.target.checked)} />Booking saya (PIC)</label>
         <label className="flex items-center gap-2 rounded-xl border border-brand-line px-3 min-h-[44px] text-sm"><input type="checkbox" className="h-4 w-4" checked={overdue} onChange={(e) => setOverdue(e.target.checked)} />Hanya yang terlambat</label>
       </div>
       <ErrorBox msg={error} />

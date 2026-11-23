@@ -7,7 +7,7 @@ import { Badge, EvidenceBadge, ErrorBox, Field, GateBadge, Loading, Modal, Month
 import { date, num, pct, rp, rpShort, short, thisMonth, times } from '../fmt'
 
 export default function Campaigns() {
-  const { can } = useApp()
+  const { can, meta } = useApp()
   const [month, setMonth] = useState(thisMonth())
   const [cat, setCat] = useState('')
   const [open, setOpen] = useState(false)
@@ -20,7 +20,7 @@ export default function Campaigns() {
         <h1 className="text-xl font-extrabold">Campaign</h1>
         <div className="flex flex-wrap gap-2">
           <MonthPicker value={month} onChange={setMonth} />
-          <select className="input w-auto" value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Semua kategori</option>{['Regular Visit', 'Frozen', 'NPL', 'Info Lokasi', 'Keranjang Kuning', 'TikTok GO'].map((c) => <option key={c}>{c}</option>)}</select>
+          <select className="input w-auto" value={cat} onChange={(e) => setCat(e.target.value)}><option value="">Semua kategori</option>{Object.keys(meta.categories).map((c) => <option key={c}>{c}</option>)}</select>
           {can('Manager', 'KOL TL') && <button className="btn-primary" onClick={() => setOpen(true)}>+ Campaign</button>}
         </div>
       </div>

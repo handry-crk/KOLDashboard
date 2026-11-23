@@ -41,6 +41,8 @@ function SettingsForm() {
         <Field label="Report final / lock (hari)"><input className="input" inputMode="numeric" value={f.reportFinalDays} onChange={(e) => set('reportFinalDays', Number(e.target.value))} /></Field>
         <Field label="Flag ER rendah (%)"><input className="input" inputMode="decimal" value={f.erFlagLow * 100} onChange={(e) => set('erFlagLow', Number(e.target.value) / 100)} /></Field>
         <Field label="Flag ER tinggi (%)"><input className="input" inputMode="decimal" value={f.erFlagHigh * 100} onChange={(e) => set('erFlagHigh', Number(e.target.value) / 100)} /></Field>
+        <Field label="Indikator: avg views min. (% follower)"><input className="input" inputMode="decimal" value={Math.round((f.kolApproval?.minViewsPctFollowers ?? 0) * 1000) / 10} onChange={(e) => set('kolApproval', { ...f.kolApproval, minViewsPctFollowers: Number(e.target.value) / 100 })} /></Field>
+        {['Nano', 'Micro', 'Macro', 'Mega'].map((t) => <Field key={t} label={`Indikator: Est CPM maks. ${t}`}><MoneyInput value={f.kolApproval?.maxCpm?.[t] || 0} onChange={(v) => set('kolApproval', { ...f.kolApproval, maxCpm: { ...f.kolApproval?.maxCpm, [t]: v } })} /></Field>)}
         <Field label="Flag views < % follower"><input className="input" inputMode="decimal" value={f.viewsFlagRatio * 100} onChange={(e) => set('viewsFlagRatio', Number(e.target.value) / 100)} /></Field>
         <Field label="Penerima digest (email, koma)" className="sm:col-span-2"><input className="input" value={f.digestRecipients || ''} onChange={(e) => set('digestRecipients', e.target.value)} /></Field>
       </div>

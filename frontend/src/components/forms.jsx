@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import { useApp } from '../App'
-import { ErrorBox, Field, Modal, MoneyInput, TierBadge, useToast } from './ui'
+import { ErrorBox, Field, IndicatorBadge, Modal, MoneyInput, TierBadge, useToast } from './ui'
 import { rp, thisMonth } from '../fmt'
 
 export const RATE_ITEMS = ['Video TikTok', 'Reels', 'Story', 'Live', 'Visit', 'Mirroring', 'Visit Mirroring']
@@ -37,7 +37,7 @@ export function CampaignForm({ open, onClose, initial, onSaved }) {
       toast(initial ? 'Campaign diperbarui' : 'Campaign dibuat'); onSaved?.(r); onClose()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
-  const outcomeKpi = { 'Regular Visit': 'Redemption kode', Frozen: 'Order', NPL: null, 'Info Lokasi': 'Klik Maps', 'Keranjang Kuning': 'Order', 'TikTok GO': 'Voucher ditukar' }[f.category]
+  const outcomeKpi = { 'Regular Visit': 'Redemption kode', Frozen: 'Order', NPL: null, Media: null, 'Info Lokasi': 'Klik Maps', 'Keranjang Kuning': 'Order', 'TikTok GO': 'Voucher ditukar' }[f.category]
   return (
     <Modal open={open} onClose={onClose} wide title={initial ? 'Edit campaign' : 'Campaign baru'} footer={<><button className="btn-ghost" onClick={onClose}>Batal</button><button className="btn-primary" disabled={busy} onClick={save}>Simpan</button></>}>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -95,6 +95,7 @@ export function BookingForm({ open, onClose, initial, campaignId, onSaved }) {
   const toast = useToast()
   const [f, setF] = useState(null)
   const [kols, setKols] = useState([])
+  const [pics, setPics] = useState([])
   const [camps, setCamps] = useState([])
   const [q, setQ] = useState('')
   const [err, setErr] = useState('')
@@ -102,8 +103,9 @@ export function BookingForm({ open, onClose, initial, campaignId, onSaved }) {
   useEffect(() => {
     if (!open) return
     setErr(''); setQ('')
-    setF(initial ? JSON.parse(JSON.stringify(initial)) : { campaignId: campaignId || '', kolId: '', platform: 'tiktok', deliverables: [{ format: 'Video TikTok', qty: 1, dueDate: '' }], costs: { feeRp: 0, productRp: 0, transportRp: 0, otherRp: 0 }, trackingLink: '', uniqueCode: '', contentRights: { repostDays: 30, adsUsage: false }, notes: '' })
+    setF(initial ? JSON.parse(JSON.stringify(initial)) : { campaignId: campaignId || '', kolId: '', platform: 'tiktok', deliverables: [{ format: 'Video TikTok', qty: 1, dueDate: '' }], costs: { feeRp: 0, productRp: 0, transportRp: 0, otherRp: 0 }, productItems: '', picId: '', trackingLink: '', uniqueCode: '', contentRights: { repostDays: 30, adsUsage: false }, notes: '' })
     api('/api/kols').then(setKols).catch(() => {})
+    api('/api/users/pic').then(setPics).catch(() => {})
     api('/api/campaigns').then((c) => setCamps(c.filter((x) => !['HOLD', 'SELESAI'].includes(x.gateStatus) || x.id === initial?.campaignId))).catch(() => {})
   }, [open, initial, campaignId])
   const camp = camps.find((c) => c.id === f?.campaignId)
@@ -117,7 +119,7 @@ export function BookingForm({ open, onClose, initial, campaignId, onSaved }) {
   const save = async () => {
     setBusy(true); setErr('')
     try {
-      const body = { campaignId: f.campaignId, kolId: f.kolId, platform: f.platform, deliverables: f.deliverables, costs: f.costs, trackingLink: f.trackingLink, uniqueCode: f.uniqueCode, contentRights: f.contentRights, notes: f.notes }
+      const body = { campaignId: f.campaignId, kolId: f.kolId, platform: f.platform, deliverables: f.deliverables, costs: f.costs, productItems: f.productItems || '', picId: f.picId || null, trackingLink: f.trackingLink, uniqueCode: f.uniqueCode, contentRights: f.contentRights, notes: f.notes }
       const r = initial ? await api(`/api/bookings/${initial.id}`, { method: 'PUT', body }) : await api('/api/bookings', { method: 'POST', body })
       toast(initial ? 'Booking diperbarui' : 'Booking dibuat (Shortlist)'); onSaved?.(r); onClose()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
@@ -135,7 +137,7 @@ export function BookingForm({ open, onClose, initial, campaignId, onSaved }) {
           <span className="label">KOL</span>
           {kol ? (
             <div className="flex items-center justify-between rounded-xl border border-brand-line p-3">
-              <div><div className="font-semibold">{kol.name} <TierBadge t={kol.tier} /></div><div className="text-xs text-ink/60">@{kol.handles?.tiktok || kol.handles?.instagram} · {kol.city}</div></div>
+              <div><div className="font-semibold">{kol.name} <TierBadge t={kol.tier} /> <IndicatorBadge i={kol.indicator} /></div><div className="text-xs text-ink/60">@{kol.handles?.tiktok || kol.handles?.instagram} · {kol.city} · avg views {kol.indicator?.avgViews ? new Intl.NumberFormat('id-ID').format(Math.round(kol.indicator.avgViews)) : '–'} · est CPM {kol.indicator?.estCpm ? rp(kol.indicator.estCpm) : '–'}</div>{['rejected', 'review'].includes(kol.indicator?.status) && <div className="mt-1 text-xs font-semibold text-amber-700">⚠ {kol.indicator.reasons.join(' · ')}</div>}</div>
               {!initial && <button className="btn-ghost btn-sm" onClick={() => set('kolId', '')}>Ganti</button>}
             </div>
           ) : (
@@ -145,20 +147,25 @@ export function BookingForm({ open, onClose, initial, campaignId, onSaved }) {
                 {filtered.map((k) => (
                   <button key={k.id} type="button" onClick={() => setF((x) => ({ ...x, kolId: k.id, costs: { ...x.costs, feeRp: x.costs.feeRp || defaultRate(k, camp?.category) } }))} className="flex w-full items-center justify-between border-b border-brand-line px-3 py-2 text-left text-sm last:border-0 hover:bg-brand-soft">
                     <span><b>{k.name}</b> <span className="text-ink/50">@{k.handles?.tiktok}</span></span>
-                    <span className="flex items-center gap-2"><span className="text-xs text-ink/50">{k.city}</span><TierBadge t={k.tier} />{k.recommendation && <span className="text-[10px] font-bold text-ink/60">{k.recommendation}</span>}</span>
+                    <span className="flex items-center gap-2"><span className="text-xs text-ink/50">{k.city}</span><TierBadge t={k.tier} /><IndicatorBadge i={k.indicator} />{k.recommendation && <span className="text-[10px] font-bold text-ink/60">{k.recommendation}</span>}</span>
                   </button>
                 ))}
               </div>
             </>
           )}
         </div>
-        <Field label="Platform"><select className="input" value={f.platform} onChange={(e) => set('platform', e.target.value)}>{['tiktok', 'instagram', 'youtube'].map((p) => <option key={p}>{p}</option>)}</select></Field>
+        <Field label="Platform" hint={f.platform === 'mirroring' ? 'Konten yang sama diposting di beberapa platform (mis. TikTok + IG)' : undefined}><select className="input" value={f.platform} onChange={(e) => set('platform', e.target.value)}>{[['tiktok', 'TikTok'], ['instagram', 'Instagram'], ['youtube', 'YouTube'], ['mirroring', 'Mirroring (multi-platform)']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
+        <Field label="PIC booking" hint="Dari listing sampai lock (DEAL) & report; default = PIC KOL">
+          <select className="input" value={f.picId || ''} onChange={(e) => set('picId', e.target.value)}>
+            <option value="">{kol?.picName ? `Ikuti PIC KOL (${kol.picName})` : 'Otomatis'}</option>{pics.map((u) => <option key={u.id} value={u.id}>{u.name} · {u.role === 'KOL TL' ? 'KOL Team Leader' : u.role}</option>)}
+          </select>
+        </Field>
         <Field label="Kode unik / voucher KOL" hint="Kosongkan untuk dibuat otomatis (mis. RV-RARAJAJAN)"><input className="input uppercase" value={f.uniqueCode} onChange={(e) => set('uniqueCode', e.target.value.toUpperCase())} /></Field>
         <div className="sm:col-span-2 rounded-2xl bg-brand-soft p-3">
           <div className="mb-2 flex items-center justify-between text-sm font-bold"><span>Biaya</span><span className="num">Total {rp(total)}</span></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Field label="Fee KOL"><MoneyInput value={f.costs.feeRp} onChange={(v) => setC('feeRp', v)} /></Field>
-            <Field label="Produk"><MoneyInput value={f.costs.productRp} onChange={(v) => setC('productRp', v)} /></Field>
+            <Field label="Nilai produk (opsional)" hint="Ikut total biaya"><MoneyInput value={f.costs.productRp} onChange={(v) => setC('productRp', v)} /></Field>
             <Field label="Transport"><MoneyInput value={f.costs.transportRp} onChange={(v) => setC('transportRp', v)} /></Field>
             <Field label="Lainnya"><MoneyInput value={f.costs.otherRp} onChange={(v) => setC('otherRp', v)} /></Field>
             {camp?.category === 'Keranjang Kuning' && <Field label="Komisi affiliate (%)" hint="Nominal komisi diambil dari report"><input className="input" inputMode="decimal" value={f.costs.commissionPct ?? ''} onChange={(e) => setC('commissionPct', Number(e.target.value))} /></Field>}
@@ -175,14 +182,15 @@ export function BookingForm({ open, onClose, initial, campaignId, onSaved }) {
             </div>
           )}
           {remaining !== null && <p className={`mt-2 text-xs ${total > remaining ? 'font-semibold text-brand' : 'text-ink/60'}`}>Sisa budget campaign: {rp(remaining)}{total > remaining ? ' — biaya melebihi sisa budget' : ''}</p>}
+          <Field label="Produk untuk KOL (nama & jumlah)" className="mt-2"><textarea className="input min-h-[60px] py-2" maxLength={500} value={f.productItems || ''} onChange={(e) => set('productItems', e.target.value)} placeholder="mis. 2 pack Cimol Frozen Original, 1 Mozza Duo, 1 tumbler" /></Field>
           {kol && ['Macro', 'Mega'].includes(kol.tier) && <p className="mt-1 text-xs font-semibold text-amber-700">Tier {kol.tier}: wajib approval Manager sebelum DEAL.</p>}
         </div>
         <div className="sm:col-span-2">
           <span className="label">Deliverables</span>
           {f.deliverables.map((d, i) => (
-            <div key={i} className="mb-2 grid grid-cols-[1fr_70px_1fr_44px] gap-2">
-              <select className="input" value={d.format} onChange={(e) => set('deliverables', f.deliverables.map((x, j) => j === i ? { ...x, format: e.target.value } : x))}>
-                {['Video TikTok', 'Reels', 'Story', 'Feed', 'Live', 'Visit', 'Mirroring', 'Visit Mirroring', 'YouTube Shorts', 'Bundle'].map((o) => <option key={o}>{o}</option>)}
+            <div key={i} className="mb-2 grid grid-cols-[70px_1fr_44px] gap-2 rounded-xl border border-brand-line p-2 sm:grid-cols-[1fr_70px_1fr_44px] sm:border-0 sm:p-0">
+              <select className="input col-span-3 sm:col-span-1" aria-label="Format deliverable" value={d.format} onChange={(e) => set('deliverables', f.deliverables.map((x, j) => j === i ? { ...x, format: e.target.value } : x))}>
+                {['Video TikTok', 'Reels', 'IG Carousel', 'Story', 'Feed', 'Live', 'Visit', 'Mirroring', 'Visit Mirroring', 'YouTube Shorts', 'Bundle'].map((o) => <option key={o}>{o}</option>)}
               </select>
               <input className="input" inputMode="numeric" value={d.qty} onChange={(e) => set('deliverables', f.deliverables.map((x, j) => j === i ? { ...x, qty: Number(e.target.value) || 1 } : x))} />
               <input type="date" className="input" value={d.dueDate} onChange={(e) => set('deliverables', f.deliverables.map((x, j) => j === i ? { ...x, dueDate: e.target.value } : x))} />
