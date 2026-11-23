@@ -83,9 +83,9 @@ function Body({ d, month, nav, showFlags, setShowFlags }) {
               <td className="td text-right num">{rp(c.cpv)} <span className="text-ink/40">({rp(c.benchCpv)})</span></td>
               <td className="td"><span className="num font-semibold">{num(c.outcome)}</span> <span className="text-xs text-ink/60">{c.outcomeLabel}</span>{c.skuUplift > 0 && <div className="text-[11px] text-amber-700">+{num(c.skuUplift)} unit SKU (assisted)</div>}</td>
               <td className="td text-right num">{rp(c.costPerOutcome)} <span className="text-ink/40">({rp(c.benchCpo)})</span></td>
-              <td className="td text-right num">{c.evidence.includes('DIRECT') ? rpShort(c.revenueDirect) : '–'}</td>
+              <td className="td text-right num">{c.evidence.includes('DIRECT') || c.revenueDirect > 0 ? rpShort(c.revenueDirect) : '–'}</td>
               <td className="td text-right num">{c.evidence.includes('ASSISTED') ? rpShort(c.revenueAssisted) : '–'}</td>
-              <td className="td text-right num font-semibold">{c.evidence.includes('DIRECT') ? times(c.roiDirect) : '–'}</td>
+              <td className="td text-right num font-semibold">{c.evidence.includes('DIRECT') || c.revenueDirect > 0 ? times(c.roiDirect) : '–'}</td>
               <td className="td text-right num">{c.evidence.includes('ASSISTED') ? times(c.roiTotal) : '–'}</td>
               <td className="td text-right num">{times(c.roas)}</td>
               <td className="td"><span className="inline-flex items-center gap-1.5 text-xs"><Dot c={c.status} />{STATUS_TEXT[c.status]}</span></td>

@@ -10,10 +10,12 @@ ENG = ["likes", "comments", "shares", "saves"]
 # Konfigurasi kategori: field wajib di report, outcome utama, sumber revenue DIRECT, level bukti
 CATEGORIES = {
     "Regular Visit": {
-        "code": "RV", "fields": ["views"] + ENG + ["mapsClicks", "redemptions"],
-        "outcome": "redemptions", "outcomeLabel": "Redemption kode di outlet",
-        "revenue": "redemptions_x_aov", "evidence": ["DIRECT", "ASSISTED"], "assisted": True, "windowDays": 7,
-        "objective": "Footfall & transaksi di outlet yang dikunjungi",
+        # Visit tidak selalu menghasilkan redemption (banyak yang untuk awareness):
+        # dinilai dari views/CPV + uplift outlet; redemption kode opsional sebagai bonus revenue DIRECT.
+        "code": "RV", "fields": ["views"] + ENG, "optional": ["mapsClicks", "redemptions"],
+        "outcome": "views", "outcomeLabel": "Views",
+        "revenue": "redemptions_x_aov", "evidence": ["EXPOSURE", "ASSISTED"], "assisted": True, "windowDays": 7,
+        "objective": "Awareness & kunjungan ke outlet yang dikunjungi KOL",
     },
     "Frozen": {
         "code": "FZ", "fields": ["views"] + ENG + ["linkClicks", "orders", "gmvRp"],
@@ -272,7 +274,9 @@ def booking_metrics(b, campaign, contents, snaps_by_content, settings, kol, assi
         rev_direct = agg.get("redemptions", 0) * settings["aovRp"]
     a = assisted or {"revenue": 0, "skuUnits": 0, "days": 0}
     gm = settings["gmBlended"]
-    bench = (settings["benchmarks"].get(cat) or {}).get(tier) or {}
+    bench = dict((settings["benchmarks"].get(cat) or {}).get(tier) or {})
+    if cfg.get("outcome") == "views":
+        bench["cpo"] = bench.get("cpv")  # outcome = views -> biaya per hasil = CPV
     m = {
         "bookingId": b["id"], "category": cat, "tier": tier, "cost": cost, "views": views,
         "reach": agg.get("reach", 0), "engagement": eng, "er": safe_div(eng, views),

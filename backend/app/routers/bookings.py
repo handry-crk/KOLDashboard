@@ -187,6 +187,7 @@ async def get_booking(bid: str, user=Depends(current_user)):
         cts.append({**ct, "snapshots": snaps})
     out["contents"] = cts
     out["requiredFields"] = CATEGORIES[c["category"]]["fields"]
+    out["optionalFields"] = CATEGORIES[c["category"]].get("optional", [])
     out["needsApproval"] = needs_approval(b, settings)
     out["hasApproval"] = has_manager_approval(b)
     return out

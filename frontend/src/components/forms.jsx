@@ -37,7 +37,7 @@ export function CampaignForm({ open, onClose, initial, onSaved }) {
       toast(initial ? 'Campaign diperbarui' : 'Campaign dibuat'); onSaved?.(r); onClose()
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
-  const outcomeKpi = { 'Regular Visit': 'Redemption kode', Frozen: 'Order', NPL: null, Media: null, 'Info Lokasi': 'Klik Maps', 'Keranjang Kuning': 'Order', 'TikTok GO': 'Voucher ditukar' }[f.category]
+  const outcomeKpi = { 'Regular Visit': null, Frozen: 'Order', NPL: null, Media: null, 'Info Lokasi': 'Klik Maps', 'Keranjang Kuning': 'Order', 'TikTok GO': 'Voucher ditukar' }[f.category]
   return (
     <Modal open={open} onClose={onClose} wide title={initial ? 'Edit campaign' : 'Campaign baru'} footer={<><button className="btn-ghost" onClick={onClose}>Batal</button><button className="btn-primary" disabled={busy} onClick={save}>Simpan</button></>}>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -75,7 +75,7 @@ export function CampaignForm({ open, onClose, initial, onSaved }) {
             {outcomeKpi && <Field label={outcomeKpi}><input className="input" inputMode="numeric" value={f.kpiTargets.outcome ?? ''} onChange={(e) => setK('outcome', e.target.value)} /></Field>}
             {outcomeKpi && <Field label="Cost per outcome maks"><input className="input" inputMode="numeric" value={f.kpiTargets.costPerOutcome ?? ''} onChange={(e) => setK('costPerOutcome', e.target.value)} /></Field>}
             {['Frozen', 'Keranjang Kuning', 'TikTok GO'].includes(f.category) && <Field label="ROAS min"><input className="input" inputMode="decimal" value={f.kpiTargets.roas ?? ''} onChange={(e) => setK('roas', e.target.value)} /></Field>}
-            {['Frozen', 'Keranjang Kuning', 'TikTok GO', 'Regular Visit'].includes(f.category) && <Field label="Revenue DIRECT"><input className="input" inputMode="numeric" value={f.kpiTargets.revenueDirect ?? ''} onChange={(e) => setK('revenueDirect', e.target.value)} /></Field>}
+            {['Frozen', 'Keranjang Kuning', 'TikTok GO'].includes(f.category) && <Field label="Revenue DIRECT"><input className="input" inputMode="numeric" value={f.kpiTargets.revenueDirect ?? ''} onChange={(e) => setK('revenueDirect', e.target.value)} /></Field>}
           </div>
         </div>
         <Field label="Status Activity Gate" hint={user.role !== 'Manager' ? 'Diputuskan Manager' : 'GO/GWC wajib untuk campaign ≥ batas approval'}>

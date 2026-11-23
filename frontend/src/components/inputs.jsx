@@ -42,7 +42,7 @@ export function ContentForm({ open, onClose, booking, onSaved }) {
   )
 }
 
-export function SnapshotForm({ open, onClose, content, fields, day: day0, existing, category, onSaved }) {
+export function SnapshotForm({ open, onClose, content, fields, optional = [], day: day0, existing, category, onSaved }) {
   const { meta, can } = useApp()
   const toast = useToast()
   const [day, setDay] = useState(day0 || 'H1')
@@ -63,7 +63,7 @@ export function SnapshotForm({ open, onClose, content, fields, day: day0, existi
     if (!open) return
     const s = snaps.find((x) => x.day === day)
     const prev = [...snaps].filter((x) => x.day < day).pop()
-    setVals(Object.fromEntries(fields.map((f) => [f, s?.[f] ?? ''])))
+    setVals(Object.fromEntries([...fields, ...optional].map((f) => [f, s?.[f] ?? ''])))
     setProof(s?.proofFiles || [])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, day])
@@ -91,7 +91,13 @@ export function SnapshotForm({ open, onClose, content, fields, day: day0, existi
               <input className="input num" inputMode="decimal" value={vals[f] ?? ''} onChange={(e) => setVals({ ...vals, [f]: e.target.value.replace(/[^\d.]/g, '') })} placeholder="0" />
             </Field>
           ))}
+          {optional.map((f) => (
+            <Field key={f} label={meta.metricLabels[f] + ' (opsional)'}>
+              <input className="input num" inputMode="decimal" value={vals[f] ?? ''} onChange={(e) => setVals({ ...vals, [f]: e.target.value.replace(/[^\d.]/g, '') })} placeholder="kosongkan bila tidak ada" />
+            </Field>
+          ))}
         </div>
+        {category === 'Regular Visit' && <p className="text-[11px] text-ink/50">Regular Visit dinilai dari views (awareness) + uplift outlet. Redemption kode diisi hanya bila KOL memakai kode/voucher — menambah revenue DIRECT, tidak mengurangi skor bila kosong.</p>}
         <Field label="Screenshot insight * (bukti wajib)"><FileDrop files={proof} onChange={setProof} label="Foto" /></Field>
         {cur?.locked && can('KOL TL', 'Manager') && <Field label="Alasan perubahan"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} /></Field>}
         <p className="text-[11px] text-ink/50">* Wajib diisi untuk kategori {category}. 0 boleh, kosong tidak.</p>

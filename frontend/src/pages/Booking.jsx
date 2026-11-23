@@ -38,7 +38,7 @@ export default function BookingPage() {
     POSTED: [['REPORT_SUBMITTED', 'Submit report']], REPORT_DUE: [['REPORT_SUBMITTED', 'Submit report']],
   }[b.status] || []
   const fields = b.requiredFields
-  const hasDirect = meta.categories[b.campaign.category]?.evidence.includes('DIRECT')
+  const hasDirect = meta.categories[b.campaign.category]?.evidence.includes('DIRECT') || m.revenueDirect > 0
   return (
     <div className="space-y-4">
       <Link to={`/campaign/${b.campaign.id}`} className="text-sm font-semibold text-brand">‹ {b.campaign.name}</Link>
@@ -84,7 +84,7 @@ export default function BookingPage() {
         <Tile label="Views" value={short(m.views)} sub={`CPV ${rp(m.cpv)} (bench ${rp(m.benchmark.cpv)})`} />
         <Tile label="ER" value={pct(m.er)} sub={`bench ${pct(m.benchmark.er)}`} />
         <Tile label={m.outcomeLabel} value={num(m.outcome)} sub={`${rp(m.costPerOutcome)}/outcome (bench ${rp(m.benchmark.cpo)})`} />
-        <Tile label="Revenue DIRECT" value={hasDirect ? rpShort(m.revenueDirect) : '–'} sub={m.roas != null ? `ROAS ${times(m.roas)}` : (m.revenueAssisted ? `ASSISTED ${rpShort(m.revenueAssisted)}` : (!hasDirect ? 'Kategori tanpa DIRECT' : ''))} />
+        <Tile label="Revenue DIRECT" value={hasDirect ? rpShort(m.revenueDirect) : '–'} sub={m.roas != null ? `ROAS ${times(m.roas)}` : [m.redemptions > 0 ? `${num(m.redemptions)} redemption` : '', m.revenueAssisted ? `ASSISTED ${rpShort(m.revenueAssisted)}` : '', !hasDirect ? 'Tanpa DIRECT' : ''].filter(Boolean).join(' · ')} />
         <Tile label="ROI DIRECT" value={hasDirect ? times(m.roiDirect) : '–'} sub={m.revenueAssisted ? `+ASSISTED ${times(m.roiTotal)}` : ''} />
       </div>
 
@@ -98,13 +98,13 @@ export default function BookingPage() {
               {editor && <button className="btn-primary btn-sm ml-auto" onClick={() => setSnap(ct)}>Isi / ubah metrik</button>}
               {editor && ct.status === 'Live' && <button className="btn-ghost btn-sm" onClick={async () => { await api(`/api/contents/${ct.id}`, { method: 'PUT', body: { ...ct, bookingId: b.id, status: 'Dihapus' } }); toast('Ditandai dihapus'); reload() }}>Tandai dihapus</button>}
             </div>
-            <Table head={['Snapshot', ...fields.map((f) => ({ label: meta.metricLabels[f], right: 1 })), 'Bukti', 'Diisi']}>
+            <Table head={['Snapshot', ...[...fields, ...(b.optionalFields || [])].map((f) => ({ label: meta.metricLabels[f], right: 1 })), 'Bukti', 'Diisi']}>
               {['H1', 'H3', 'H7', 'H30'].map((d) => {
                 const s = ct.snapshots.find((x) => x.day === d)
                 return (
                   <tr key={d} className={!s ? 'text-ink/40' : ''}>
                     <td className="td font-semibold">{d.replace('H', 'H+')} {s?.locked && '🔒'}</td>
-                    {fields.map((f) => <td key={f} className="td text-right num">{s ? (f.endsWith('Rp') ? rpShort(s[f]) : f === 'audienceLocalPct' ? s[f] + '%' : num(s[f])) : '–'}</td>)}
+                    {[...fields, ...(b.optionalFields || [])].map((f) => <td key={f} className="td text-right num">{s && s[f] != null ? (f.endsWith('Rp') ? rpShort(s[f]) : f === 'audienceLocalPct' ? s[f] + '%' : num(s[f])) : '–'}</td>)}
                     <td className="td">{s?.proofFiles?.map((p) => <a key={p} href={fileUrl(p)} target="_blank" rel="noreferrer" className="mr-1 text-xs text-brand underline">foto</a>)}</td>
                     <td className="td text-xs">{s ? `${s.enteredBy}` : ''}</td>
                   </tr>
@@ -144,7 +144,7 @@ export default function BookingPage() {
       </div>
       <BookingForm open={edit} onClose={() => setEdit(false)} initial={b} onSaved={reload} />
       <ContentForm open={addContent} onClose={() => setAddContent(false)} booking={b} onSaved={reload} />
-      <SnapshotForm open={!!snap} onClose={() => setSnap(null)} content={snap} fields={fields} category={b.campaign.category} onSaved={reload} />
+      <SnapshotForm open={!!snap} onClose={() => setSnap(null)} content={snap} fields={fields} optional={b.optionalFields || []} category={b.campaign.category} onSaved={reload} />
       <ReasonModal open={reasonFor === 'cancel'} danger title="Batalkan booking" confirmText="Batalkan" onClose={() => setReasonFor(null)} onSubmit={async (r) => { await go('CANCELLED', r); setReasonFor(null) }} />
       <ReasonModal open={reasonFor === 'reject'} danger title="Tolak booking" confirmText="Tolak" onClose={() => setReasonFor(null)} onSubmit={async (r) => { await approve('reject', r); setReasonFor(null) }} />
       <ReasonModal open={reasonFor === 'rejectReport'} danger title="Kembalikan report ke officer" label="Apa yang perlu diperbaiki?" confirmText="Kembalikan" onClose={() => setReasonFor(null)} onSubmit={async (r) => { await go('POSTED', r); setReasonFor(null) }} />

@@ -79,7 +79,7 @@ export default function InputKonten() {
       {ACTIVE.includes(b.status) && <button className="btn-primary w-full" onClick={() => setAddContent(true)}>+ Paste link konten tayang</button>}
       <button className="btn-ghost w-full" onClick={() => nav(`/booking/${b.id}`)}>Buka detail booking</button>
       <ContentForm open={addContent} onClose={() => setAddContent(false)} booking={b} onSaved={loadB} />
-      <SnapshotForm open={!!snap} onClose={() => setSnap(null)} content={snap?.ct} day={snap?.day} fields={b.requiredFields} category={b.campaign.category} onSaved={loadB} />
+      <SnapshotForm open={!!snap} onClose={() => setSnap(null)} content={snap?.ct} day={snap?.day} fields={b.requiredFields} optional={b.optionalFields || []} category={b.campaign.category} onSaved={loadB} />
     </div>
   )
 }

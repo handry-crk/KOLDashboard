@@ -129,9 +129,15 @@ async def upsert_snapshot(body: SnapshotIn, user=Depends(require(*EDITORS))):
         if f == "audienceLocalPct" and v > 100:
             raise HTTPException(400, "% audiens maksimal 100")
         vals[f] = int(v) if f != "audienceLocalPct" else v
-    for f in ("reach", "profileVisits"):  # opsional
+    for f in list(CATEGORIES[c["category"]].get("optional", [])) + ["reach", "profileVisits"]:  # opsional
         if f not in fields and body.values.get(f) not in (None, ""):
-            vals[f] = int(float(body.values[f]))
+            try:
+                v = int(float(body.values[f]))
+            except (TypeError, ValueError):
+                raise HTTPException(400, f"{METRIC_LABELS[f]} harus angka")
+            if v < 0:
+                raise HTTPException(400, f"{METRIC_LABELS[f]} tidak boleh negatif")
+            vals[f] = v
     if not body.proofFiles:
         raise HTTPException(400, "Screenshot insight wajib diunggah sebagai bukti")
     for f in body.proofFiles:

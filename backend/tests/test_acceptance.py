@@ -182,7 +182,7 @@ def test_09_assisted_uplift_and_roi_split():
     t = rep["tiles"]
     assert "roiDirect" in t and "roiTotal" in t and t["roiTotal"] >= t["roiDirect"]
     cat = next(x for x in rep["categories"] if x["category"] == "Regular Visit")
-    assert cat["evidence"] == ["DIRECT", "ASSISTED"]
+    assert cat["evidence"] == ["EXPOSURE", "ASSISTED"] and cat["outcomeLabel"] == "Views"
     assert any(f["flags"][0]["code"] in ("views_low", "report_overdue") for f in rep["flags"] if f["bookingId"])
 
 
@@ -250,3 +250,23 @@ def test_12_self_registration():
     assert c.post(f"/api/users/{p2['id']}/reject", json={"reason": ""}, headers=H("mgr")).status_code == 400
     assert c.post(f"/api/users/{p2['id']}/reject", json={"reason": "Bukan tim KOL"}, headers=H("mgr")).status_code == 200
     assert not any(u["name"] == "Uji Tolak" for u in c.get("/api/auth/users").json())
+
+
+def test_13_regular_visit_awareness():
+    """Regular Visit tanpa redemption tidak dihukum: dinilai dari CPV; redemption opsional jadi bonus revenue DIRECT."""
+    hd = H("tl")
+    camps = c.get("/api/campaigns", headers=hd).json()
+    rv = next(x for x in camps if x["name"] == "Regular Visit Bandung Nov")
+    d = c.get(f"/api/campaigns/{rv['id']}", headers=hd).json()
+    assert "redemptions" not in d["config"]["fields"] and "redemptions" in d["config"]["optional"]
+    b = next(r for r in d["rows"] if r["contents"] and r["booking"]["status"] in ("POSTED", "REPORT_DUE"))
+    det = c.get(f"/api/bookings/{b['booking']['id']}", headers=hd).json()
+    ct = det["contents"][0]
+    last = det["contents"][0]["snapshots"][-1]
+    day = "H7" if any(s["day"] == "H7" for s in ct["snapshots"]) else last["day"]
+    vals = {k: last[k] for k in det["requiredFields"]}  # tanpa redemption & klik maps
+    r = c.post("/api/snapshots", json={"contentId": ct["id"], "day": last["day"], "values": vals, "proofFiles": last["proofFiles"], "reason": "uji awareness"}, headers=hd)
+    assert r.status_code == 200, r.text
+    m = c.get(f"/api/bookings/{b['booking']['id']}", headers=hd).json()["metrics"]
+    assert m["outcomeLabel"] == "Views" and m["benchmark"]["cpo"] == m["benchmark"]["cpv"]
+    assert not any(f["code"] == "no_outcome" for f in m["flags"])
